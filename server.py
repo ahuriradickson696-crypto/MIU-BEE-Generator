@@ -8,18 +8,32 @@ Endpoints:
   POST /api/stop               → stop current run
   POST /api/report/email       → send report email now
   GET  /download/<kind>/<path> → download pptx/pdf
+  GET  /api/db/status          → MongoDB connection status
+  GET  /api/search?q=...       → search topics in MongoDB
+  GET  /api/dashboard          → stats + charts data
+  GET  /api/zip/all            → download all slides as zip
+  GET  /api/zip/course/<code>  → download one course as zip
   GET  /                       → serves React build if present
 """
 
+import io
 import json
 import subprocess
 import threading
 import sys
+import zipfile
 from pathlib import Path
 from flask import Flask, jsonify, request, send_from_directory, send_file
 from flask_cors import CORS
 
 import mailer
+
+try:
+    import db
+    MONGO_AVAILABLE = True
+except Exception as e:
+    print(f"[db] MongoDB not available: {e}")
+    MONGO_AVAILABLE = False
 
 BASE = Path(__file__).parent
 CURRICULUM = BASE / "curriculum.json"
@@ -51,7 +65,6 @@ class State:
         self.lock = threading.Lock()
         self.task = None
         self.auto_report_sent = False
-
 
 state = State()
 
@@ -90,7 +103,6 @@ def run_script(script_name, args=None, label=None):
             state.proc.wait()
             push(f"\n[exit code {state.proc.returncode}]\n")
 
-            # Auto email report if generation just finished
             if not state.auto_report_sent and script_name == "gen_topic.py":
                 state.auto_report_sent = True
                 push("\n[mailer] Sending auto progress report...\n")
@@ -159,7 +171,6 @@ def scan_stats():
 
 
 def build_tree(root, rel=""):
-    """Return nested dict tree of files under root."""
     if not root.exists():
         return {"name": root.name, "type": "folder", "children": []}
     node = {"name": root.name, "type": "folder", "children": []}
@@ -209,6 +220,7 @@ def api_run(task):
         "rebuild": ("regenerate_from_cache.py", None, "Rebuilding from cache"),
         "cleanup": ("cleanup.py", None, "Cleanup (dry run)"),
         "cleanup-apply": ("cleanup.py", ["--apply"], "Cleanup (apply)"),
+        "migrate": ("migrate_to_mongo.py", None, "Migrating to MongoDB"),
     }
     if task not in tasks:
         return jsonify({"ok": False, "error": f"Unknown task {task}"}), 400
@@ -243,7 +255,160 @@ def download(kind, filepath):
     return send_file(target, as_attachment=True)
 
 
-# ---- Serve React build (after `npm run build`) ----
+# ---------------- NEW MongoDB routes ----------------
+
+@app.route("/api/db/status")
+def api_db_status():
+    if not MONGO_AVAILABLE:
+        return jsonify({"ok": False, "message": "MongoDB module not loaded"})
+    ok, msg = db.ping()
+    counts = {}
+    if ok:
+        try:
+            counts = {
+                "curriculum": db.col_curriculum().count_documents({}),
+                "content": db.col_content().count_documents({}),
+                "slides": db.col_slides().count_documents({}),
+                "users": db.col_users().count_documents({}),
+                "activity": db.col_activity().count_documents({}),
+            }
+        except Exception as e:
+            counts = {"error": str(e)}
+    return jsonify({"ok": ok, "message": msg, "counts": counts})
+
+
+@app.route("/api/search")
+def api_search():
+    if not MONGO_AVAILABLE:
+        return jsonify({"ok": False, "error": "MongoDB not available"}), 503
+
+    q = (request.args.get("q") or "").strip()
+    limit = min(int(request.args.get("limit", 50)), 200)
+
+    if not q:
+        return jsonify({"ok": True, "results": [], "count": 0})
+
+    import re
+    pattern = re.compile(re.escape(q), re.IGNORECASE)
+
+    course_results = list(db.col_curriculum().find(
+        {"$or": [{"name": pattern}, {"topics": pattern}, {"code": pattern}]},
+        {"_id": 0}
+    ).limit(limit))
+
+    content_results = list(db.col_content().find(
+        {"$or": [{"topic": pattern}, {"course_name": pattern}, {"course_code": pattern}]},
+        {"_id": 0, "content": 0}
+    ).limit(limit))
+
+    return jsonify({
+        "ok": True,
+        "query": q,
+        "courses": course_results,
+        "topics": content_results,
+        "count": len(course_results) + len(content_results)
+    })
+
+
+@app.route("/api/dashboard")
+def api_dashboard():
+    stats = scan_stats()
+
+    if not MONGO_AVAILABLE:
+        return jsonify({"ok": True, "stats": stats, "charts": {}})
+
+    charts = {}
+
+    try:
+        from datetime import datetime, timezone, timedelta
+        days = []
+        now = datetime.now(timezone.utc)
+        for i in range(13, -1, -1):
+            d = (now - timedelta(days=i)).strftime("%Y-%m-%d")
+            cnt = db.col_content().count_documents({
+                "updated_at": {"$gte": now - timedelta(days=i + 1),
+                               "$lt": now - timedelta(days=i)}
+            })
+            days.append({"date": d, "count": cnt})
+        charts["daily"] = days
+    except Exception as e:
+        charts["daily_error"] = str(e)
+
+    try:
+        pipeline = [
+            {"$group": {"_id": "$year", "total": {"$sum": 1}}},
+            {"$sort": {"_id": 1}}
+        ]
+        by_year = list(db.col_content().aggregate(pipeline))
+        charts["by_year"] = [{"year": r["_id"], "count": r["total"]} for r in by_year]
+    except Exception as e:
+        charts["by_year_error"] = str(e)
+
+    try:
+        recent = list(db.col_activity().find({}, {"_id": 0})
+                      .sort("ts", -1).limit(20))
+        for r in recent:
+            if "ts" in r and hasattr(r["ts"], "isoformat"):
+                r["ts"] = r["ts"].isoformat()
+        charts["recent"] = recent
+    except Exception as e:
+        charts["recent_error"] = str(e)
+
+    return jsonify({"ok": True, "stats": stats, "charts": charts})
+
+
+@app.route("/api/zip/all")
+def api_zip_all():
+    if not SLIDES_ROOT.exists():
+        return "No slides found", 404
+
+    pptx_files = list(SLIDES_ROOT.rglob("*.pptx"))
+    if not pptx_files:
+        return "No slides found", 404
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for f in pptx_files:
+            arcname = str(f.relative_to(SLIDES_ROOT))
+            zf.write(f, arcname)
+    buf.seek(0)
+
+    return send_file(
+        buf,
+        mimetype="application/zip",
+        as_attachment=True,
+        download_name="miu_bee_slides.zip"
+    )
+
+
+@app.route("/api/zip/course/<course_code>")
+def api_zip_course(course_code):
+    if not SLIDES_ROOT.exists():
+        return "No slides found", 404
+
+    needle = course_code.replace(" ", "_")
+    pptx_files = [f for f in SLIDES_ROOT.rglob("*.pptx")
+                  if needle in str(f.parent)]
+    if not pptx_files:
+        return f"No slides found for {course_code}", 404
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for f in pptx_files:
+            arcname = str(f.relative_to(SLIDES_ROOT))
+            zf.write(f, arcname)
+    buf.seek(0)
+
+    safe = course_code.replace(" ", "_")
+    return send_file(
+        buf,
+        mimetype="application/zip",
+        as_attachment=True,
+        download_name=f"{safe}_slides.zip"
+    )
+
+
+# ---- Serve React build ----
 @app.route("/", defaults={"path": ""})
 @app.route("/<path:path>")
 def serve_react(path):
