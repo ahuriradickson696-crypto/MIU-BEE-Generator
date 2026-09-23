@@ -13,6 +13,7 @@ import FileTree from './components/FileTree'
 import Actions from './components/Actions'
 import CourseTable from './components/CourseTable'
 import Toasts from './components/Toasts'
+import PrayerPage from './components/PrayerPage'
 
 export default function App() {
   const [stats, setStats] = useState({
@@ -23,6 +24,9 @@ export default function App() {
   const [tree, setTree] = useState({ pptx: null, pdf: null, cache: null })
   const [treeTab, setTreeTab] = useState('pptx')
   const [toasts, setToasts] = useState([])
+  const [showPrayer, setShowPrayer] = useState(
+    () => localStorage.getItem('miu_bee_prayer_seen') !== 'yes'
+  )
 
   const logIndexRef = useRef(0)
 
@@ -106,6 +110,15 @@ export default function App() {
     }
   }
 
+  const dismissPrayer = () => {
+    localStorage.setItem('miu_bee_prayer_seen', 'yes')
+    setShowPrayer(false)
+  }
+
+  if (showPrayer) {
+    return <PrayerPage onEnter={dismissPrayer} />
+  }
+
   return (
     <div className="app">
       {/* Header */}
@@ -121,19 +134,38 @@ export default function App() {
             </div>
           </div>
 
-          <AnimatePresence>
-            {stats.running && stats.task && (
-              <motion.div
-                className="task-badge"
-                initial={{ opacity: 0, y: -6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -6 }}
-              >
-                <span className="dot" />
-                {stats.task}
-              </motion.div>
-            )}
-          </AnimatePresence>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <AnimatePresence>
+              {stats.running && stats.task && (
+                <motion.div
+                  className="task-badge"
+                  initial={{ opacity: 0, y: -6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                >
+                  <span className="dot" />
+                  {stats.task}
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <button
+              onClick={() => setShowPrayer(true)}
+              style={{
+                background: 'rgba(255,255,255,.18)',
+                border: '1px solid rgba(255,255,255,.3)',
+                color: 'white',
+                padding: '8px 16px',
+                borderRadius: 999,
+                cursor: 'pointer',
+                fontSize: 13,
+                fontWeight: 600,
+                fontFamily: 'inherit'
+              }}
+            >
+              🙏 Prayer
+            </button>
+          </div>
         </div>
       </header>
 
