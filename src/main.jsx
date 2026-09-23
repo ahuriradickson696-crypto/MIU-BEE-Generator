@@ -1,0 +1,16 @@
+$main = @"
+import React from 'react'
+import ReactDOM from 'react-dom/client'
+import App from './App.jsx'
+import './styles.css'
+
+ReactDOM.createRoot(document.getElementById('root')).render(
+  React.createElement(
+    React.StrictMode,
+    null,
+    React.createElement(App)
+  )
+)
+"@
+[System.IO.File]::WriteAllText("$PWD\src\main.jsx", $main, [System.Text.UTF8Encoding]::new($false))
+Get-Content src\main.jsx
