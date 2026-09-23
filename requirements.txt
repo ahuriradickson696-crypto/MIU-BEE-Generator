@@ -1,0 +1,6 @@
+python-pptx>=0.6.23
+python-dotenv>=1.0.0
+groq>=0.11.0
+google-generativeai>=0.8.3
+mistralai>=1.2.0
+json-repair>=0.30.0

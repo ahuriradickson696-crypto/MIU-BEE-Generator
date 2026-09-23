@@ -1,0 +1,133 @@
+{
+  "programs": [
+    {
+      "name": "Bachelor of Science in Electrical Engineering",
+      "code": "BEE",
+      "years": [
+        {
+          "year": 1,
+          "semesters": [
+            {
+              "semester": 1,
+              "courses": [
+                { "code": "BEE 1101", "name": "Communication Skills", "topics": ["Overview of Communication","The Process of Communication","Effective Communication Principles","Forms and Methods of Communication","Non-Verbal Communication","Business Letters","Report Writing","Oral Presentations and Listening","Employment Communication"] },
+                { "code": "BEE 1102", "name": "Introduction to Information and Communication Technology", "topics": ["Basics of Information Technology","Numbering Systems","Computer Fundamentals","Computer Memory and Peripheral Devices","Software","Introduction to Computer Applications","MS Excel","MS PowerPoint"] },
+                { "code": "BEE 1103", "name": "Kiswahili", "topics": ["Introduction to Kiswahili","Swahili Reading Skills","Oral Presentations in Kiswahili","Examination Skills","Kiswahili Presentations"] },
+                { "code": "BEE 1104", "name": "Circuit Theory", "topics": ["Introduction to Circuit Theory","Electrical Quantities","Resistive Circuits","Reactive Circuits and Networks","Frequency Response","Sinusoidal Analysis"] },
+                { "code": "BEE 1105", "name": "Engineering Mathematics I", "topics": ["The Concept of a Function","Complex Variable Algebra","Differential Calculus","Integral Calculus","Linear Transformations and Matrices","Vector Algebra","Partial Fractions"] },
+                { "code": "BEE 1106", "name": "Engineering Drawing I", "topics": ["Introduction and Simple Geometrical Construction","Tangency","Simple Plane Figures","Special Curves and Loci","Principles of Orthographic Projection","Principles of Sectioning","Isometric and Oblique Drawings"] },
+                { "code": "BEE 1107", "name": "Applied Mechanics", "topics": ["Statics","Mechanics of Solids","Dynamics"] }
+              ]
+            },
+            {
+              "semester": 2,
+              "courses": [
+                { "code": "BEE 1201", "name": "Electrical Systems", "topics": ["DC Circuit Analysis","AC Circuits","Elementary Transient Signals","Three Phase Circuits","Frequency Response Curves"] },
+                { "code": "BEE 1202", "name": "Electrical Instrumentation", "topics": ["Introduction to Measurement","Instrument Characteristics and Applications","Errors in Measurement and Data Processing","Transducers","Processing of Transduced Signals","Dimension Measurement","Displacement Measurement","Other Instruments"] },
+                { "code": "BEE 1203", "name": "Computer Programming I", "topics": ["Introduction to Computer Programming","Programming Language Fundamentals","Functions and Strings","Structures, Unions and Preprocessors"] },
+                { "code": "BEE 1204", "name": "Electromagnetic Fields", "topics": ["Introduction to Electric Fields","Static Magnetic Fields","Time-varying Electric and Magnetic Fields","Plane Waves in Dielectric and Conducting Media"] },
+                { "code": "BEE 1205", "name": "Physical Electronics", "topics": ["Introduction to Physical Electronics","Electron Tubes","Junctions and Semiconductor Diodes","Transistors","Low-power Switching Devices","Power Supply Circuits"] },
+                { "code": "BEE 1206", "name": "Entrepreneurship Skills", "topics": ["Introduction to Entrepreneurship Skills","The Entrepreneurial Process","Intrapreneurship Concept","Creativity and Innovation","Generating Business Ideas","Business Opportunities","Starting a Business","Feasibility Study","Business Plan Development","Resource Mobilization","Business Risk Management","Disadvantaged People and Entrepreneurship","Entrepreneurship and Economic Development"] },
+                { "code": "BEE 1207", "name": "Vocational Training", "topics": ["Safety Precautions","Elementary Machine Shop","Fitting Shop","Smith Shop","Electronics and Computer Shop","Building Construction","Electricals"] }
+              ]
+            }
+          ]
+        },
+        {
+          "year": 2,
+          "semesters": [
+            {
+              "semester": 1,
+              "courses": [
+                { "code": "BEE 2101", "name": "Engineering Mathematics II", "topics": ["Ordinary Differential Equations","Real Analysis","Scientific Computing and Numerical Analysis","Vector Analysis"] },
+                { "code": "BEE 2102", "name": "Engineering Drawing II", "topics": ["Overview of Engineering Drawings","2D CAD Systems, Drawing, Displays and Views","Edit Commands","Dimensioning","Layers, Blocks, Viewports, 3D Modelling","Relational Database Management Systems"] },
+                { "code": "BEE 2103", "name": "Network Theory", "topics": ["Introduction to Network Theory","Two Port Networks","Network Functions","Network Stability","Electric Filters"] },
+                { "code": "BEE 2104", "name": "Amplifier Circuits", "topics": ["Introduction to Amplifiers","Integrated Circuits","Transistor Power Amplifiers","Transistor Medium and High Frequency Amplifiers","Precision Op-amp Circuits","IC Timer Circuits"] },
+                { "code": "BEE 2105", "name": "Power Systems I", "topics": ["Introduction to Power Systems","Overhead Line Electrical Parameters","Corona Phenomenon","Power Cables","Cable Parameters","Switchgear and Circuit Breakers"] },
+                { "code": "BEE 2106", "name": "Energy Systems", "topics": ["Introduction to Energy Systems","Renewable Energy Systems","Direct Energy Conversion Systems","Future Energy Sources","Allied Energy Systems","Power Systems Engineering and Economics"] },
+                { "code": "BEE 2107", "name": "Introduction to Artificial Intelligence", "topics": ["Introduction to Artificial Intelligence","Application Areas of AI","AI and Related Fields","Foundations of AI - Machine Learning","Agents and Environments","Concept of Rationality","Fuzzy Logic Systems","Overview of Robotics","Natural Language Processing","Neural Networks"] }
+              ]
+            },
+            {
+              "semester": 2,
+              "courses": [
+                { "code": "BEE 2201", "name": "Engineering Mathematics III", "topics": ["Fourier Integrals and Transformations","Laplace Transformations","Power Series Solutions to ODEs","Gamma and Beta Functions","Bessel Functions","Legendre Functions","Partial Differential Equations","Boundary Conditions to PDEs","Solving Boundary Value Problems"] },
+                { "code": "BEE 2202", "name": "Computer Programming II", "topics": ["Introduction to Software Engineering","Graphics and GUI Design","Exception Handling, Threads and Files"] },
+                { "code": "BEE 2203", "name": "Power Electronics", "topics": ["Introduction to Power Electronics","Power Transistors","Thyristors and Multilayer Devices","Shockley or PNPN Diodes","Applications of SCRs and Switching Devices"] },
+                { "code": "BEE 2204", "name": "Power Systems II", "topics": ["Distribution Systems","Transmission Systems","Reactive Power Control","Short Circuits","Surges or Transients"] },
+                { "code": "BEE 2205", "name": "Digital Circuits", "topics": ["Introduction to Digital Logic","Logic Minimization and Karnaugh Maps","Latches and Flip-flops","Sequential Circuit Design and Analysis","Asynchronous Circuit Design","RAM, ROM and Programmable Logic Devices"] },
+                { "code": "BEE 2206", "name": "Engineering Control Systems I", "topics": ["Introduction to Control Systems","Frequency System Response","Performance Criteria of Control Systems","Analysis of Linear Feedback Control Systems","Design and Compensation of Linear Feedback Control Systems"] },
+                { "code": "BEE 2207", "name": "Field Attachment / Industrial Training I", "topics": ["Introduction and Orientation","Documentation","Soft Skills","Field Practice"] }
+              ]
+            }
+          ]
+        },
+        {
+          "year": 3,
+          "semesters": [
+            {
+              "semester": 1,
+              "courses": [
+                { "code": "BEE 3101", "name": "Research Methodology", "topics": ["Introduction to Research Methods","Research Conceptualization","The Review of Literature","Research Design","Sampling Concepts","Data Collection Sources, Methods and Instruments","Measurement, Validity and Reliability","Data Quality Control","Writing a Research Proposal","Applied Statistics in Research"] },
+                { "code": "BEE 3102", "name": "Electrical Installation", "topics": ["Introduction to Industrial and Commercial Installations","Faults and Fault-finding","Protective Devices and Switchgear","Earthing Systems","Overcurrent Protection","Shock and Earth Leakage Protection","Cable Size Calculations","Inspection and Testing","Tariffs and Power Factor Improvement"] },
+                { "code": "BEE 3103", "name": "Power Systems III", "topics": ["AC Generator Operation","Excitation Systems and Response","Transformer Operations","Three-phase Power Transformers","Installation and Maintenance of Transformers","Maintenance of Control Gear and Switchgear"] },
+                { "code": "BEE 3104", "name": "Thermodynamics", "topics": ["Basic Definitions and Introduction","Working Fluids","First Law of Thermodynamics","Second Law of Thermodynamics","Cycles","Introduction to Combustion"] },
+                { "code": "BEE 3105", "name": "Applied Electronics", "topics": ["Introduction to Applied Electronics","Regulated Power Supplies","Oscillators","Electronic Control Circuits","Digital ICs","Logic Circuits","Digital Storage and Memory Circuits","Clock Generation","Digital Systems Design","Programmable Logic Controllers","Digital IC Design and Fabrication"] },
+                { "code": "BEE 3106", "name": "Engineering Mathematics IV", "topics": ["Complex Variable Analysis","Discrete Mathematics","Probability Basics","Statistics","Random Processes","Estimation Theory","Heat Equation and Boundary Value Problems"] },
+                { "code": "BEE 3107", "name": "Microcontrollers and Applications", "topics": ["Introduction to Microcontrollers","8051 Architecture","MCS-51 Addressing Modes and Instructions","Serial and Parallel Port Interfacing","PIC Microcontroller","System Design"] },
+                { "code": "BEE 3108", "name": "Communication Theory", "topics": ["Signal Analysis and Signal Models","Noise","Modulation and Demodulation","Pulse Modulation Processes","Introduction to Information Transmission Theory"] },
+                { "code": "BEE 3109", "name": "Power Plant Engineering", "topics": ["Introduction to Power System Planning","Factors for Plant Design","Diesel-engine Power Plants","Hydroelectric Power Plants","Thermal Power Plants","Nuclear Power Plants","Gas Turbine Power Plants","Hybrid Power Plants","Environmental Aspects of Power Generation"] }
+              ]
+            },
+            {
+              "semester": 2,
+              "courses": [
+                { "code": "BEE 3201", "name": "Illumination, Heating and Cooling Systems", "topics": ["Introduction to Illumination","Heating Techniques","Refrigeration Systems","Air Conditioning Systems"] },
+                { "code": "BEE 3202", "name": "Installation Design and Contracting", "topics": ["Plant Installation Procedures","Installation Planning and Design","Estimating and Costing of Installations","Design of Electrical Installations","Substation Installations"] },
+                { "code": "BEE 3203", "name": "Power Systems Protection", "topics": ["Introduction to Protection Principles","Electromechanical Relays","Static Relays","Protection Against Lightning Surges","Protection Systems and Equipment"] },
+                { "code": "BEE 3204", "name": "Construction Technology", "topics": ["History of Construction","Site Visits","The Process of Construction","Services","Finishes","Stairs, Ramps and Ladders","Under Ground Construction"] },
+                { "code": "BEE 3205", "name": "Biomass Energy Technologies", "topics": ["Introduction to Biomass","Biomass Resources and Fuels","Open-top Gasifier Technologies","Biomass-based Power Generation Technologies"] },
+                { "code": "BEE 3206", "name": "Group Design Project", "topics": ["Introduction to Group Design","Problem Analysis","Preliminary Design and Cost Estimates","Design Report and Presentation"] },
+                { "code": "BEE 3207", "name": "Field Attachment / Industrial Training II", "topics": ["Introduction and Orientation","Documentation","Soft Skills","Field Practice"] },
+                { "code": "BEE 3208", "name": "Engineering Mathematics V", "topics": ["Heat Equation","Boundary Value Problems","Sturm-Liouville Problems and Applications"] },
+                { "code": "BEE 3209", "name": "Signal Processing", "topics": ["Processing and Analysis of Signals","Sampling Continuous Signals","The z-transform","Discrete Fourier Transforms and FFT"] },
+                { "code": "BEE 3210", "name": "Engineering Control Systems II", "topics": ["Advanced Frequency-domain Design Techniques","Time-domain Analysis of Systems","Optimal System Control","Digital Control","Computer Control Systems"] }
+              ]
+            }
+          ]
+        },
+        {
+          "year": 4,
+          "semesters": [
+            {
+              "semester": 1,
+              "courses": [
+                { "code": "BEE 4101", "name": "Engineering Practice and Ethics", "topics": ["Engineering and the Law","Labour Laws","Law of Contract","Tendering"] },
+                { "code": "BEE 4102", "name": "Industrial Electronics", "topics": ["Power Supplies","Controlled and AC Voltage Converters","Inverter Circuits","Static DC Choppers","Switches and Control Circuits","Protection of Devices and Circuits"] },
+                { "code": "BEE 4103", "name": "Individual Project I", "topics": ["Producing a Research Proposal","Problem/Issue Identification","Documentation","Work-in-Progress Presentation"] },
+                { "code": "BEE 4104", "name": "Electrical Power Systems Management", "topics": ["Operation of Power Plants and Systems","Economic Loading of Power Systems","Load Forecasting and Management","Power Systems Energy Planning and Policy Issues"] },
+                { "code": "BEE 4105", "name": "Electromechanical Drive Systems", "topics": ["Introduction to Electrical Motors","Principles of Motor Drives","DC Motor Starting and Control","Three-phase Induction Motor Starting and Control","Machine Rewinding"] },
+                { "code": "BEE 4106", "name": "Power Systems Instrumentation and Control", "topics": ["Introduction to Instrumentation","High Voltage Measurements","Power System Measurement","Power Plant Instrumentation","Power Systems Control","Power Systems Communication"] },
+                { "code": "BEE 4107", "name": "Principles of Maintenance Engineering", "topics": ["Introduction to Maintenance Engineering","Maintenance Management","Economics of Maintenance","Maintenance Management Tools","Computer Aided Maintenance","Safety during Operation and Maintenance"] },
+                { "code": "BEE 4108", "name": "Project Planning and Management", "topics": ["Introduction to Project Planning","Project Environment","Information Needs","Planning and Organizing","Engineering Contracts","Site Management","Contract Administration"] }
+              ]
+            },
+            {
+              "semester": 2,
+              "courses": [
+                { "code": "BEE 4201", "name": "Management and Control of Energy Systems", "topics": ["Energy Planning and Policy Issues","Total Energy Schemes","Energy Auditing and Economics","Energy Storage and Distribution","Demand-side Management"] },
+                { "code": "BEE 4202", "name": "Individual Project II", "topics": ["Documentation","Data Collection and Preparation for Analysis","Findings, Conclusions and Recommendations","Book Organization and Presentation"] },
+                { "code": "BEE 4203", "name": "Stability and High Voltage Systems", "topics": ["System Integration","System Stability","High and Extra-high Voltage Systems","Extra-high Voltage AC Substations","High Voltage DC Substations","Maintenance of EHV-AC and HVDC Substations"] },
+                { "code": "BEE 4204", "name": "Safety Engineering and Management", "topics": ["Principles of Safety and its Management","Equipment and System Neutral Earthing","Installation Practices","Safety Documentation and Work Permits","Testing and Commissioning","Safety Management"] },
+                { "code": "BEE 4205", "name": "Economics of Power Systems", "topics": ["Principles of Economics","Financial Evaluation","Generation Costs","Transmission and Distribution Costs","Revenue Management"] },
+                { "code": "BEE 4206", "name": "Substation Engineering", "topics": ["Introduction to Electrical Substations","Substation Auxiliary Power Supplies","Substation Types and Layouts","Substation Earthing","Insulation Co-ordination","Substation Building Services"] },
+                { "code": "BEE 4207", "name": "Engineering Mathematics VI", "topics": ["Probability Rules and Random Variables","Stochastic Random Processes"] },
+                { "code": "BEE 4208", "name": "Power Systems Design", "topics": ["Principles of Power System Design","Design of Distribution Systems","Substation Design","Design of Diesel-electric Stations","Standby Power Systems","Design of Hydro-electric Stations","Design of Steam Power Stations"] }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
