@@ -1,5 +1,7 @@
 // api.js — thin wrapper around the Flask backend
-const BASE = '' // Vite proxies /api/* to localhost:5000
+// In dev (Vite on localhost:5173) BASE is empty → Vite proxies /api/* to localhost:5000
+// In production (Vercel) VITE_API_BASE_URL points at the Render backend
+const BASE = import.meta.env.VITE_API_BASE_URL || ''
 
 async function jsonFetch(url, opts) {
   const r = await fetch(url, opts)
