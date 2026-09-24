@@ -21,6 +21,7 @@ import Login from './components/Login'
 import UserManagement from './components/UserManagement'
 import ChangePasswordModal from './components/ChangePasswordModal'
 import MyLogins from './components/MyLogins'
+import History from './components/History'
 
 const ROLE_LABELS = {
   admin: '🛡️ Admin',
@@ -47,6 +48,7 @@ export default function App() {
   const [adminTab, setAdminTab] = useState('main')
   const [showChangePw, setShowChangePw] = useState(false)
   const [showLogins, setShowLogins] = useState(false)
+  const [showHistory, setShowHistory] = useState(false)
 
   const logIndexRef = useRef(0)
 
@@ -271,6 +273,25 @@ export default function App() {
               🙏 Prayer
             </button>
 
+            {user.role === 'admin' && (
+              <button
+                onClick={() => setShowHistory(true)}
+                style={{
+                  background: 'rgba(255,255,255,.18)',
+                  border: '1px solid rgba(255,255,255,.3)',
+                  color: 'white',
+                  padding: '8px 16px',
+                  borderRadius: 999,
+                  cursor: 'pointer',
+                  fontSize: 13,
+                  fontWeight: 600,
+                  fontFamily: 'inherit'
+                }}
+              >
+                📜 History
+              </button>
+            )}
+
             <UserMenu
               user={user}
               roleLabel={roleLabel}
@@ -416,6 +437,42 @@ export default function App() {
               </button>
             </div>
             <MyLogins />
+          </div>
+        </div>
+      )}
+
+      {showHistory && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 1000,
+          background: 'rgba(0,0,0,.4)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: 20
+        }} onClick={() => setShowHistory(false)}>
+          <div style={{
+            background: 'white', borderRadius: 12,
+            padding: 24, width: '100%', maxWidth: 720,
+            maxHeight: '85vh', display: 'flex', flexDirection: 'column'
+          }} onClick={e => e.stopPropagation()}>
+            <div style={{
+              display: 'flex', justifyContent: 'space-between',
+              alignItems: 'center', marginBottom: 14
+            }}>
+              <div style={{ fontSize: 16, fontWeight: 700, color: '#00823C' }}>
+                📜 Content History
+              </div>
+              <button
+                onClick={() => setShowHistory(false)}
+                style={{
+                  background: 'transparent', border: 'none',
+                  cursor: 'pointer', color: '#666'
+                }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div style={{ overflowY: 'auto', flex: 1 }}>
+              <History onToast={addToast} />
+            </div>
           </div>
         </div>
       )}
