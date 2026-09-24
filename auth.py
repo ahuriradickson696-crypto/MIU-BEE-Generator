@@ -4,6 +4,7 @@ Uses MongoDB for user storage + bcrypt for password hashing
 + itsdangerous for signed session tokens.
 Supports role-based permissions: admin, lecturer, viewer.
 Includes rate limiting + self-service password change.
+Cross-domain cookies (SameSite=None; Secure) for Vercel ↔ Render.
 """
 
 import os
@@ -113,19 +114,29 @@ def read_token(token):
 
 
 def set_session_cookie(response, username):
+    """Cross-domain cookie: SameSite=None + Secure (required for Vercel → Render)."""
     token = make_token(username)
     response.set_cookie(
         COOKIE_NAME, token,
         max_age=COOKIE_MAX_AGE,
         httponly=True,
-        samesite="Lax",
-        secure=False,
+        samesite="None",
+        secure=True,
+        path="/",
     )
     return response
 
 
 def clear_session_cookie(response):
-    response.set_cookie(COOKIE_NAME, "", max_age=0, httponly=True, samesite="Lax")
+    """Clear the session cookie with matching attributes."""
+    response.set_cookie(
+        COOKIE_NAME, "",
+        max_age=0,
+        httponly=True,
+        samesite="None",
+        secure=True,
+        path="/",
+    )
     return response
 
 
@@ -155,7 +166,6 @@ def record_login_attempt(username, ip, success):
             "success": bool(success),
             "ts": datetime.now(timezone.utc),
         })
-        # Auto-delete attempts older than 24 hours
         cutoff = datetime.now(timezone.utc) - timedelta(days=1)
         _login_attempts_col().delete_many({"ts": {"$lt": cutoff}})
     except Exception as e:
