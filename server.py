@@ -19,6 +19,8 @@ Endpoints:
   POST /api/me/password        → change own password
   GET  /api/me/logins          → recent login attempts
   GET/POST/PATCH/DELETE /api/users  → admin user management
+  GET  /api/history/<code>/<n> → archived versions of a topic
+  GET  /api/history/stats      → count of archived versions
   GET  /                       → serves React build if present
 """
 
@@ -705,6 +707,49 @@ def api_users_password(username):
         db.log_activity("password_reset", f"user={username}",
                         user=auth.current_user())
         return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+# ---------------- Content history (admin only) ----------------
+
+@app.route("/api/history/<course_code>/<int:topic_number>")
+@auth.require_role("admin")
+def api_history(course_code, topic_number):
+    """Return all archived versions of a topic."""
+    if not MONGO_AVAILABLE:
+        return jsonify({"ok": False, "error": "MongoDB not available"}), 503
+    try:
+        docs = list(db.get_db()["generated_content_history"]
+                    .find({"course_code": course_code, "topic_number": topic_number},
+                          {"_id": 0})
+                    .sort("archived_at", -1))
+        for d in docs:
+            if "archived_at" in d and hasattr(d["archived_at"], "isoformat"):
+                d["archived_at"] = d["archived_at"].isoformat()
+        return jsonify({"ok": True, "history": docs, "count": len(docs)})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/history/stats")
+@auth.require_role("admin")
+def api_history_stats():
+    """Return count of archived versions per course."""
+    if not MONGO_AVAILABLE:
+        return jsonify({"ok": False, "error": "MongoDB not available"}), 503
+    try:
+        pipeline = [
+            {"$group": {"_id": "$course_code", "count": {"$sum": 1}}},
+            {"$sort": {"count": -1}}
+        ]
+        rows = list(db.get_db()["generated_content_history"].aggregate(pipeline))
+        total = sum(r["count"] for r in rows)
+        return jsonify({
+            "ok": True,
+            "total_archived": total,
+            "by_course": [{"course_code": r["_id"], "count": r["count"]} for r in rows]
+        })
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
 

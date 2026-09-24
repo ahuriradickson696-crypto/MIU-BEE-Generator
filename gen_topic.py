@@ -667,6 +667,29 @@ def build_topic_deck(program_code, year, semester,
     # Save to MongoDB (best-effort — never break the pipeline)
     if MONGO_AVAILABLE:
         try:
+            # 1. Archive previous version (if any)
+            existing = db.col_content().find_one(
+                {"course_code": course_code, "topic_number": topic_number}
+            )
+            if existing and existing.get("content"):
+                try:
+                    history_col = db.get_db()["generated_content_history"]
+                    history_col.insert_one({
+                        "course_code": course_code,
+                        "topic_number": topic_number,
+                        "topic": topic,
+                        "course_name": course_name,
+                        "program": program_code,
+                        "year": year,
+                        "semester": semester,
+                        "content": existing.get("content"),
+                        "archived_at": datetime.now(timezone.utc),
+                    })
+                    print(f"    [history] Archived previous version of '{topic}'")
+                except Exception as he:
+                    print(f"    [history] archive failed: {he}")
+
+            # 2. Save slide metadata
             db.col_slides().update_one(
                 {"course_code": course_code, "topic_number": topic_number},
                 {"$set": {
@@ -682,6 +705,8 @@ def build_topic_deck(program_code, year, semester,
                 }},
                 upsert=True,
             )
+
+            # 3. Save current content
             db.col_content().update_one(
                 {"course_code": course_code, "topic_number": topic_number},
                 {"$set": {
@@ -697,6 +722,8 @@ def build_topic_deck(program_code, year, semester,
                 }},
                 upsert=True,
             )
+
+            # 4. Log
             db.log_activity(
                 "generate",
                 f"{course_code} · {topic}",
