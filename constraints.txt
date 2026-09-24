@@ -1,0 +1,6 @@
+proto-plus>=1.25.0
+protobuf>=5.29.0
+google-api-core>=2.25.0
+googleapis-common-protos>=1.69.2
+grpcio>=1.68.0
+grpcio-status>=1.68.0
