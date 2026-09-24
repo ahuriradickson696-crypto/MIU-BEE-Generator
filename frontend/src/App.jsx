@@ -23,9 +23,9 @@ import ChangePasswordModal from './components/ChangePasswordModal'
 import MyLogins from './components/MyLogins'
 
 const ROLE_LABELS = {
-  admin: '\u{1F6E1}\u{FE0F} Admin',
-  lecturer: '\u{1F393} Lecturer',
-  viewer: '\u{1F441}\u{FE0F} Viewer'
+  admin: '🛡️ Admin',
+  lecturer: '🎓 Lecturer',
+  viewer: '👁️ Viewer'
 }
 
 export default function App() {
@@ -57,7 +57,7 @@ export default function App() {
   }
 
   const notif = useNotifications(stats, (result) => {
-    if (result === 'granted') addToast('Notifications enabled \u{1F514}', 'success')
+    if (result === 'granted') addToast('Notifications enabled 🔔', 'success')
     else addToast('Notifications blocked', 'error')
   })
 
@@ -176,8 +176,8 @@ export default function App() {
               <img src="/miu_logo.png" alt="MIU" />
             </div>
             <div>
-              <h1>MIU BEE \u00B7 Slide Generator</h1>
-              <p>Metropolitan International University \u00B7 Bachelor of Science in Electrical Engineering</p>
+              <h1>MIU BEE · Slide Generator</h1>
+              <p>Metropolitan International University · Bachelor of Science in Electrical Engineering</p>
             </div>
           </div>
 
@@ -198,7 +198,7 @@ export default function App() {
                 fontFamily: 'inherit'
               }}
             >
-              {view === 'overview' ? '\u{1F4CA} Dashboard' : '\u{1F4CB} Overview'}
+              {view === 'overview' ? '📊 Dashboard' : '📋 Overview'}
             </button>
 
             {user.role === 'admin' && (
@@ -218,7 +218,7 @@ export default function App() {
                   fontFamily: 'inherit'
                 }}
               >
-                {adminTab === 'users' ? '\u{1F4CB} Back to App' : '\u{1F465} Manage Users'}
+                {adminTab === 'users' ? '📋 Back to App' : '👥 Manage Users'}
               </button>
             )}
 
@@ -242,7 +242,7 @@ export default function App() {
                 title="Enable notifications"
                 style={pillBtn}
               >
-                \u{1F514}
+                🔔
               </button>
             )}
 
@@ -251,7 +251,7 @@ export default function App() {
               title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
               style={pillBtn}
             >
-              {theme === 'light' ? '\u{1F319}' : '\u2600\uFE0F'}
+              {theme === 'light' ? '🌙' : '☀️'}
             </button>
 
             <button
@@ -268,7 +268,7 @@ export default function App() {
                 fontFamily: 'inherit'
               }}
             >
-              \u{1F64F} Prayer
+              🙏 Prayer
             </button>
 
             <UserMenu
@@ -448,9 +448,9 @@ function UserMenu({ user, roleLabel, onChangePassword, onShowLogins, onLogout })
         }}
       >
         <span>{roleLabel}</span>
-        <span style={{ opacity: .75 }}>\u00B7</span>
+        <span style={{ opacity: .75 }}>·</span>
         <span>{user.username}</span>
-        <span style={{ opacity: .75, fontSize: 10 }}>{open ? '\u25B2' : '\u25BC'}</span>
+        <span style={{ opacity: .75, fontSize: 10 }}>{open ? '▲' : '▼'}</span>
       </button>
 
       {open && (
@@ -466,13 +466,13 @@ function UserMenu({ user, roleLabel, onChangePassword, onShowLogins, onLogout })
             minWidth: 220, padding: 6, zIndex: 201
           }}>
             <MenuItem onClick={() => { setOpen(false); onChangePassword() }}>
-              \u{1F510} Change Password
+              🔐 Change Password
             </MenuItem>
             <MenuItem onClick={() => { setOpen(false); onShowLogins() }}>
-              \u{1F4DC} My Recent Logins
+              📜 My Recent Logins
             </MenuItem>
             <div style={{ height: 1, background: '#F3F4F6', margin: '4px 0' }} />
-            <MenuItem onClick={onLogout} danger>\u23CB Logout</MenuItem>
+            <MenuItem onClick={onLogout} danger>⎋ Logout</MenuItem>
           </div>
         </>
       )}
