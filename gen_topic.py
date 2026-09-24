@@ -91,7 +91,7 @@ if MISTRAL_API_KEY:
 
 
 UNIVERSITY_NAME = "Metropolitan International University"
-FOOTER_TEXT = "www.miu.ac.ug  |  info@miu.ac.ug  |  +256 772 561 957  |  Kampala • Mbarara • Kisoro Campuses"
+FOOTER_TEXT = "www.miu.ac.ug  |  info@miu.ac.ug  |  +256 772 561 957  |  Kampala - Mbarara - Kisoro Campuses"
 
 PRIMARY_COLOR = RGBColor(0, 130, 60)
 ACCENT_COLOR = RGBColor(200, 30, 40)
@@ -110,11 +110,10 @@ for d in (CACHE_ROOT, SLIDES_ROOT, LOGS_DIR):
 
 
 # ============================================================
-# PATH BUILDERS — the "MIU organisation"
+# PATH BUILDERS
 # ============================================================
 
 def clean_name(text):
-    """Turn any text into a safe filename fragment (no spaces)."""
     return "".join(c if c.isalnum() else "_" for c in text).strip("_")
 
 
@@ -140,7 +139,6 @@ def topic_filename(topic_number, topic_name):
 
 def build_paths(program_code, year, semester, course_code, course_name,
                 topic_number, topic_name):
-    """Return (cache_dir, cache_file, slides_dir, slides_file)."""
     course_folder = course_dir(course_code, course_name)
     stem = topic_filename(topic_number, topic_name)
 
@@ -273,7 +271,7 @@ def build_prompts(topic, course_name, course_code, topic_number, total_topics):
         "You are a friendly university lecturer writing teaching slides "
         "for undergraduate students learning this topic for the first time. "
         "Make the content CLEAR, SIMPLE and EASY TO UNDERSTAND. "
-        "You MUST return ONLY valid JSON — no markdown, no explanation. "
+        "You MUST return ONLY valid JSON - no markdown, no explanation. "
         'The JSON must be exactly this shape: '
         '{"slides": [{"title": "...", "bullets": ["...", "..."]}]} '
         "Each slide object must have: "
@@ -285,11 +283,11 @@ def build_prompts(topic, course_name, course_code, topic_number, total_topics):
         f"Topic {topic_number} of {total_topics}: {topic}\n\n"
         f"Write 15 teaching slides using this structure:\n"
         f"1. Learning Objectives\n"
-        f"2. Introduction — What is {topic}?\n"
+        f"2. Introduction - What is {topic}?\n"
         f"3. Why {topic} Matters\n"
         f"4. Key Ideas - Part 1\n"
         f"5. Key Ideas - Part 2\n"
-        f"6. How It Works — Step by Step\n"
+        f"6. How It Works - Step by Step\n"
         f"7. Important Terms Explained\n"
         f"8. Real-Life Examples\n"
         f"9. Worked Example\n"
@@ -297,7 +295,7 @@ def build_prompts(topic, course_name, course_code, topic_number, total_topics):
         f"11. Advantages and Limitations\n"
         f"12. Best Practices\n"
         f"13. Modern Developments\n"
-        f"14. Summary — What You Should Remember\n"
+        f"14. Summary - What You Should Remember\n"
         f"15. Practice Questions and Further Reading\n\n"
         f"Every bullet must be a full sentence or two. Write in simple English. "
         f"Define every technical term the first time it appears.\n\n"
@@ -343,7 +341,7 @@ def parse_json_robust(raw):
 
 
 # ============================================================
-# CONTENT GENERATION (cache-aware)
+# CONTENT GENERATION
 # ============================================================
 
 def generate_slide_content(topic, course_name, course_code, topic_number,
@@ -563,7 +561,7 @@ def build_title_slide(prs, course_name, course_code, topic,
     p2.alignment = PP_ALIGN.CENTER
 
     p3 = tf.add_paragraph()
-    p3.text = f"Year {year} — Semester {semester}"
+    p3.text = f"Year {year} - Semester {semester}"
     p3.font.size = Pt(13)
     p3.font.color.rgb = WHITE
     p3.alignment = PP_ALIGN.CENTER
@@ -590,7 +588,7 @@ def build_content_slide(prs, slide_data, course_code, topic, slide_no, total_sli
     add_header_bar(
         slide, prs,
         title_text=slide_data.get("title", f"Slide {slide_no}"),
-        topic_label=f"{course_code} — {topic}"
+        topic_label=f"{course_code} - {topic}"
     )
     body = slide.shapes.add_textbox(
         Inches(0.6), Inches(1.35),
@@ -603,7 +601,7 @@ def build_content_slide(prs, slide_data, course_code, topic, slide_no, total_sli
     bullets = slide_data.get("bullets", []) or ["No content available."]
     for i, bullet in enumerate(bullets):
         p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
-        p.text = f"• {bullet}"
+        p.text = f"- {bullet}"
         p.font.size = Pt(13)
         p.font.color.rgb = DARK_TEXT
         p.space_after = Pt(6)
@@ -624,7 +622,7 @@ def build_content_slide(prs, slide_data, course_code, topic, slide_no, total_sli
 
 
 # ============================================================
-# DECK BUILDER — respects MIU tree
+# DECK BUILDER
 # ============================================================
 
 def build_topic_deck(program_code, year, semester,
@@ -636,8 +634,19 @@ def build_topic_deck(program_code, year, semester,
         topic_number, topic
     )
 
-    if slides_file.exists():
-        print(f"    [skip] Already exists: {slides_file.relative_to(BASE_DIR)}")
+    # If pptx exists on disk AND in MongoDB, skip
+    if slides_file.exists() and MONGO_AVAILABLE and db.pptx_exists_in_mongo(course_code, topic_number):
+        print(f"    [skip] Already exists (disk + MongoDB)")
+        return slides_file
+
+    # If pptx exists on disk but not MongoDB, upload it
+    if slides_file.exists() and MONGO_AVAILABLE and not db.pptx_exists_in_mongo(course_code, topic_number):
+        try:
+            file_id = db.save_pptx_to_mongo(course_code, topic_number, slides_file.name, slides_file)
+            if file_id:
+                print(f"    [gridfs] Backed up existing pptx to MongoDB")
+        except Exception as e:
+            print(f"    [gridfs] backup failed: {e}")
         return slides_file
 
     content = generate_slide_content(
@@ -662,12 +671,19 @@ def build_topic_deck(program_code, year, semester,
     prs.save(str(slides_file))
     rel = slides_file.relative_to(BASE_DIR)
     print(f"    [saved] {rel}")
-    log_progress(f"[Y{year}S{semester}] [{course_code}] {topic} — DONE ({rel})")
+    log_progress(f"[Y{year}S{semester}] [{course_code}] {topic} - DONE ({rel})")
 
-    # Save to MongoDB (best-effort — never break the pipeline)
+    # Save to MongoDB
     if MONGO_AVAILABLE:
         try:
-            # 1. Archive previous version (if any)
+            # 1. Save pptx BYTES to GridFS
+            file_id = db.save_pptx_to_mongo(
+                course_code, topic_number, slides_file.name, slides_file
+            )
+            if file_id:
+                print(f"    [gridfs] Saved to MongoDB (id={file_id[:8]}...)")
+
+            # 2. Archive previous content version
             existing = db.col_content().find_one(
                 {"course_code": course_code, "topic_number": topic_number}
             )
@@ -685,11 +701,11 @@ def build_topic_deck(program_code, year, semester,
                         "content": existing.get("content"),
                         "archived_at": datetime.now(timezone.utc),
                     })
-                    print(f"    [history] Archived previous version of '{topic}'")
+                    print(f"    [history] Archived previous version")
                 except Exception as he:
                     print(f"    [history] archive failed: {he}")
 
-            # 2. Save slide metadata
+            # 3. Slide metadata
             db.col_slides().update_one(
                 {"course_code": course_code, "topic_number": topic_number},
                 {"$set": {
@@ -701,12 +717,13 @@ def build_topic_deck(program_code, year, semester,
                     "filename": slides_file.name,
                     "rel_path": str(rel).replace("\\", "/"),
                     "size_bytes": slides_file.stat().st_size,
+                    "gridfs_id": file_id,
                     "updated_at": datetime.now(timezone.utc),
                 }},
                 upsert=True,
             )
 
-            # 3. Save current content
+            # 4. Current content
             db.col_content().update_one(
                 {"course_code": course_code, "topic_number": topic_number},
                 {"$set": {
@@ -723,10 +740,10 @@ def build_topic_deck(program_code, year, semester,
                 upsert=True,
             )
 
-            # 4. Log
+            # 5. Activity log
             db.log_activity(
                 "generate",
-                f"{course_code} · {topic}",
+                f"{course_code} - {topic}",
                 user="system"
             )
         except Exception as e:
@@ -736,7 +753,7 @@ def build_topic_deck(program_code, year, semester,
 
 
 # ============================================================
-# MAIN — walks curriculum, respects tree
+# MAIN
 # ============================================================
 
 def main():
@@ -760,7 +777,7 @@ def main():
                     topics = course.get("topics", [])
                     total_topics = len(topics)
 
-                    print(f"\n=== {course_code} — {course_name} "
+                    print(f"\n=== {course_code} - {course_name} "
                           f"(Year {year}, Sem {semester}) ===")
 
                     for idx, topic in enumerate(topics, 1):
@@ -772,13 +789,13 @@ def main():
                             )
                         except RateLimitReached as e:
                             print(f"\n[STOP] {e}")
-                            log_progress(f"[STOP] Rate limit — {course_code}/{topic}")
+                            log_progress(f"[STOP] Rate limit - {course_code}/{topic}")
                             if MONGO_AVAILABLE:
                                 try:
                                     db.log_activity("rate_limit", str(e), user="system")
                                 except Exception:
                                     pass
-                            print("Re-run later — cached topics will be skipped.")
+                            print("Re-run later - cached topics will be skipped.")
                             return
                         except Exception as e:
                             print(f"[ERROR] {course_code} / {topic}: {e}")

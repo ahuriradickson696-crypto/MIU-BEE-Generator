@@ -12,6 +12,9 @@ Collections:
     usage                 AI provider usage
     activity_log          everything that happens
     settings              system config
+
+GridFS bucket:
+    fs                    pptx file bytes (survives Render restarts)
 """
 
 import os
@@ -21,6 +24,7 @@ from dotenv import load_dotenv
 
 from pymongo import MongoClient, ASCENDING
 from pymongo.errors import ConnectionFailure, ServerSelectionTimeoutError
+from gridfs import GridFS
 
 load_dotenv()
 
@@ -113,19 +117,16 @@ def col_settings():
 
 def ensure_indexes():
     """Create indexes used by common queries."""
-    # curriculum: unique on code
     col_curriculum().create_index([("code", ASCENDING)], unique=True)
     col_curriculum().create_index([("year", ASCENDING),
                                    ("semester", ASCENDING)])
 
-    # content: one cache per (course_code, topic_number)
     col_content().create_index(
         [("course_code", ASCENDING), ("topic_number", ASCENDING)],
         unique=True
     )
     col_content().create_index([("course_code", ASCENDING)])
 
-    # slides / pdfs
     col_slides().create_index(
         [("course_code", ASCENDING), ("topic_number", ASCENDING)],
         unique=True
@@ -135,17 +136,13 @@ def ensure_indexes():
         unique=True
     )
 
-    # users unique email
     col_users().create_index([("email", ASCENDING)], unique=True)
 
-    # sessions expire after 30 days
     col_sessions().create_index([("created_at", ASCENDING)],
                                 expireAfterSeconds=60 * 60 * 24 * 30)
 
-    # activity: newest first
     col_activity().create_index([("ts", ASCENDING)])
 
-    # usage: one doc per day
     col_usage().create_index([("date", ASCENDING)], unique=True)
 
 
@@ -159,7 +156,7 @@ def log_activity(action, detail=None, user=None):
             "user": user or "system",
         })
     except Exception:
-        pass  # never break the app because of logging
+        pass
 
 
 def usage_today():
@@ -179,9 +176,96 @@ def usage_today():
     return doc
 
 
+# ============================================================
+# GRIDFS — store pptx files INSIDE MongoDB
+# ============================================================
+
+def get_fs():
+    """Return a GridFS bucket for storing files."""
+    return GridFS(get_db())
+
+
+def save_pptx_to_mongo(course_code, topic_number, filename, filepath):
+    """
+    Save a pptx file to MongoDB GridFS.
+    Deletes any previous version with the same (course_code, topic_number).
+    Returns the GridFS file id (str) or None on failure.
+    """
+    try:
+        fs = get_fs()
+
+        # Delete any previous version with the same key
+        for old in fs.find({"course_code": course_code, "topic_number": topic_number}):
+            fs.delete(old._id)
+
+        # Save new version
+        with open(filepath, "rb") as f:
+            file_id = fs.put(
+                f,
+                filename=filename,
+                course_code=course_code,
+                topic_number=topic_number,
+                content_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                uploaded_at=datetime.now(timezone.utc),
+            )
+        return str(file_id)
+    except Exception as e:
+        print(f"[gridfs] save failed for {course_code}/{topic_number}: {e}")
+        return None
+
+
+def get_pptx_from_mongo(course_code, topic_number):
+    """
+    Fetch a pptx from MongoDB GridFS.
+    Returns (bytes, filename) or (None, None) if not found.
+    """
+    try:
+        fs = get_fs()
+        grid_out = fs.find_one(
+            {"course_code": course_code, "topic_number": topic_number}
+        )
+        if not grid_out:
+            return None, None
+        return grid_out.read(), grid_out.filename
+    except Exception as e:
+        print(f"[gridfs] get failed: {e}")
+        return None, None
+
+
+def pptx_exists_in_mongo(course_code, topic_number):
+    """Check if a pptx is stored in MongoDB."""
+    try:
+        fs = get_fs()
+        doc = fs.find_one(
+            {"course_code": course_code, "topic_number": topic_number},
+            {"_id": 1}
+        )
+        return doc is not None
+    except Exception:
+        return False
+
+
+def list_pptx_in_mongo():
+    """Return metadata for all pptx files in MongoDB (without the bytes)."""
+    try:
+        fs = get_fs()
+        out = []
+        for f in fs.find({}, {"_id": 0, "filename": 1, "course_code": 1,
+                              "topic_number": 1, "uploaded_at": 1,
+                              "length": 1, "chunkSize": 1}):
+            if "uploaded_at" in f and hasattr(f["uploaded_at"], "isoformat"):
+                f["uploaded_at"] = f["uploaded_at"].isoformat()
+            out.append(f)
+        return out
+    except Exception as e:
+        print(f"[gridfs] list failed: {e}")
+        return []
+
+
 if __name__ == "__main__":
     ok, msg = ping()
     print(("OK  " if ok else "FAIL  ") + msg)
     if ok:
         ensure_indexes()
         print("Indexes created.")
+        print(f"GridFS files: {len(list_pptx_in_mongo())}")
