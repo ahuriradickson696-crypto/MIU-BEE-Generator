@@ -28,5 +28,9 @@ json-repair>=0.30.0
 pymongo==4.10.1
 dnspython==2.7.0
 
+# ---- Authentication ----
+bcrypt==4.2.0
+itsdangerous==2.2.0
+
 # ---- Scheduler ----
 apscheduler==3.10.4
