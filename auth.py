@@ -2,6 +2,7 @@
 auth.py — simple user authentication for MIU BEE.
 Uses MongoDB for user storage + bcrypt for password hashing
 + itsdangerous for signed session tokens.
+Supports role-based permissions: admin, lecturer, viewer.
 """
 
 import os
@@ -26,7 +27,9 @@ COOKIE_MAX_AGE = 60 * 60 * 24 * 7  # 7 days
 signer = URLSafeTimedSerializer(SECRET_KEY, salt="miu-bee-session")
 
 
-# ---------- Users ----------
+# ============================================================
+# USERS
+# ============================================================
 
 def hash_password(plain):
     return bcrypt.hashpw(plain.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
@@ -66,7 +69,9 @@ def find_user(username):
         return None
 
 
-# ---------- Session tokens ----------
+# ============================================================
+# SESSION TOKENS
+# ============================================================
 
 def make_token(username):
     return signer.dumps({"u": username, "n": secrets.token_hex(6)})
@@ -108,7 +113,42 @@ def current_user():
     return read_token(token)
 
 
-# ---------- Decorator ----------
+# ============================================================
+# ROLE SYSTEM
+# ============================================================
+
+ROLE_PERMISSIONS = {
+    "admin": {
+        "generate", "progress", "pdf", "rebuild",
+        "cleanup", "cleanup_apply", "stop", "report",
+        "search", "dashboard", "download", "zip",
+        "manage_users",
+    },
+    "lecturer": {
+        "generate", "progress", "pdf", "rebuild",
+        "stop", "report", "search", "dashboard", "download", "zip",
+    },
+    "viewer": {
+        "search", "dashboard", "download", "zip",
+    },
+}
+
+
+def user_role(username):
+    """Look up a user's role."""
+    doc = find_user(username) or {}
+    return doc.get("role", "viewer")
+
+
+def has_permission(username, permission):
+    """Check if user has a specific permission via their role."""
+    role = user_role(username)
+    return permission in ROLE_PERMISSIONS.get(role, set())
+
+
+# ============================================================
+# DECORATORS
+# ============================================================
 
 def require_auth(fn):
     """Route decorator: blocks access if not logged in."""
@@ -119,3 +159,45 @@ def require_auth(fn):
             return jsonify({"ok": False, "error": "Unauthorized"}), 401
         return fn(*args, **kwargs)
     return wrapper
+
+
+def require_permission(permission):
+    """Route decorator: only allows users whose role has the permission."""
+    def decorator(fn):
+        @wraps(fn)
+        def wrapper(*args, **kwargs):
+            user = current_user()
+            if not user:
+                return jsonify({"ok": False, "error": "Unauthorized"}), 401
+            if not has_permission(user, permission):
+                return jsonify({
+                    "ok": False,
+                    "error": (
+                        f"Forbidden — your role ({user_role(user)}) "
+                        f"cannot perform '{permission}'"
+                    )
+                }), 403
+            return fn(*args, **kwargs)
+        return wrapper
+    return decorator
+
+
+def require_role(*roles):
+    """Route decorator: only allows specific roles."""
+    allowed = set(roles)
+    def decorator(fn):
+        @wraps(fn)
+        def wrapper(*args, **kwargs):
+            user = current_user()
+            if not user:
+                return jsonify({"ok": False, "error": "Unauthorized"}), 401
+            if user_role(user) not in allowed:
+                return jsonify({
+                    "ok": False,
+                    "error": (
+                        f"Forbidden — requires role: {', '.join(sorted(allowed))}"
+                    )
+                }), 403
+            return fn(*args, **kwargs)
+        return wrapper
+    return decorator

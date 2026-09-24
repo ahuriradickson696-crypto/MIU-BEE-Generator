@@ -15,7 +15,7 @@ Endpoints:
   GET  /api/zip/course/<code>  → download one course as zip
   POST /api/login              → login
   POST /api/logout             → logout
-  GET  /api/me                 → current user info
+  GET  /api/me                 → current user info + permissions
   GET  /                       → serves React build if present
 """
 
@@ -221,12 +221,14 @@ def api_login():
                 pass
         return jsonify({"ok": False, "error": "Invalid credentials"}), 401
 
+    role = user.get("role", "viewer")
     resp = make_response(jsonify({
         "ok": True,
         "user": {
             "username": user["username"],
-            "role": user.get("role", "viewer"),
+            "role": role,
             "email": user.get("email", ""),
+            "permissions": sorted(auth.ROLE_PERMISSIONS.get(role, set())),
         }
     }))
     return auth.set_session_cookie(resp, user["username"])
@@ -244,13 +246,15 @@ def api_me():
     if not user:
         return jsonify({"ok": False, "authenticated": False}), 200
     doc = auth.find_user(user) or {}
+    role = doc.get("role", "viewer")
     return jsonify({
         "ok": True,
         "authenticated": True,
         "user": {
             "username": user,
-            "role": doc.get("role", "viewer"),
+            "role": role,
             "email": doc.get("email", ""),
+            "permissions": sorted(auth.ROLE_PERMISSIONS.get(role, set())),
         }
     })
 
@@ -285,23 +289,31 @@ def api_tree():
 @auth.require_auth
 def api_run(task):
     tasks = {
-        "generate": ("gen_topic.py", None, "Generating slides"),
-        "progress": ("check_progress.py", None, "Checking progress"),
-        "pdf": ("convert_to_pdf.py", ["--skip-existing"], "Converting to PDF"),
-        "rebuild": ("regenerate_from_cache.py", None, "Rebuilding from cache"),
-        "cleanup": ("cleanup.py", None, "Cleanup (dry run)"),
-        "cleanup-apply": ("cleanup.py", ["--apply"], "Cleanup (apply)"),
-        "migrate": ("migrate_to_mongo.py", None, "Migrating to MongoDB"),
+        "generate":      ("gen_topic.py",             None,               "Generating slides",     "generate"),
+        "progress":      ("check_progress.py",        None,               "Checking progress",     "progress"),
+        "pdf":           ("convert_to_pdf.py",        ["--skip-existing"], "Converting to PDF",     "pdf"),
+        "rebuild":       ("regenerate_from_cache.py", None,               "Rebuilding from cache", "rebuild"),
+        "cleanup":       ("cleanup.py",               None,               "Cleanup (dry run)",     "cleanup"),
+        "cleanup-apply": ("cleanup.py",               ["--apply"],         "Cleanup (apply)",       "cleanup_apply"),
+        "migrate":       ("migrate_to_mongo.py",      None,               "Migrating to MongoDB",  "manage_users"),
     }
     if task not in tasks:
         return jsonify({"ok": False, "error": f"Unknown task {task}"}), 400
-    script, args, label = tasks[task]
+
+    script, args, label, permission = tasks[task]
+    user = auth.current_user()
+    if not auth.has_permission(user, permission):
+        return jsonify({
+            "ok": False,
+            "error": f"Your role ({auth.user_role(user)}) cannot run '{task}'"
+        }), 403
+
     ok, msg = run_script(script, args, label)
     return jsonify({"ok": ok, "message": msg})
 
 
 @app.route("/api/stop", methods=["POST"])
-@auth.require_auth
+@auth.require_permission("stop")
 def api_stop():
     if state.proc and state.proc.poll() is None:
         state.proc.terminate()
@@ -311,7 +323,7 @@ def api_stop():
 
 
 @app.route("/api/report/email", methods=["POST"])
-@auth.require_auth
+@auth.require_permission("report")
 def api_report_email():
     body = request.get_json(silent=True) or {}
     label = body.get("label", "Manual Report")
@@ -332,7 +344,7 @@ def download(kind, filepath):
 # ---------------- MongoDB routes ----------------
 
 @app.route("/api/db/status")
-@auth.require_auth
+@auth.require_role("admin")
 def api_db_status():
     if not MONGO_AVAILABLE:
         return jsonify({"ok": False, "message": "MongoDB module not loaded"})
@@ -353,7 +365,7 @@ def api_db_status():
 
 
 @app.route("/api/search")
-@auth.require_auth
+@auth.require_permission("search")
 def api_search():
     if not MONGO_AVAILABLE:
         return jsonify({"ok": False, "error": "MongoDB not available"}), 503
@@ -387,7 +399,7 @@ def api_search():
 
 
 @app.route("/api/dashboard")
-@auth.require_auth
+@auth.require_permission("dashboard")
 def api_dashboard():
     stats = scan_stats()
 
