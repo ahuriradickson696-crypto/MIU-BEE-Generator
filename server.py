@@ -7,7 +7,7 @@ Endpoints:
   POST /api/run/<task>         → start a script
   POST /api/stop               → stop current run
   POST /api/report/email       → send report email now
-  GET  /download/<kind>/<path> → download pptx/pdf
+  GET  /download/<kind>/<path> → download pptx/pdf (disk OR GridFS)
   GET  /api/db/status          → MongoDB connection status
   GET  /api/search?q=...       → search topics in MongoDB
   GET  /api/dashboard          → stats + charts data
@@ -21,6 +21,9 @@ Endpoints:
   GET/POST/PATCH/DELETE /api/users  → admin user management
   GET  /api/history/<code>/<n> → archived versions of a topic
   GET  /api/history/stats      → count of archived versions
+  GET  /api/mongo-files        → list pptx stored in MongoDB GridFS
+  GET  /api/mongo-stats        → summary of GridFS storage
+  POST /api/restore            → rebuild disk from MongoDB GridFS
   GET  /                       → serves React build if present
 """
 
@@ -166,8 +169,21 @@ def scan_stats():
                     c_done = 0
                     for idx, topic in enumerate(topics, 1):
                         stem = f"{idx:02d}_{clean_name(topic)}"
-                        if (CACHE_ROOT / pc / f"Year_{y}" / f"Semester_{s}"
-                                / cdir / f"{stem}.json").exists():
+                        # Check disk first
+                        disk_ok = (CACHE_ROOT / pc / f"Year_{y}" / f"Semester_{s}"
+                                   / cdir / f"{stem}.json").exists()
+                        # Fallback: check MongoDB
+                        mongo_ok = False
+                        if not disk_ok and MONGO_AVAILABLE:
+                            try:
+                                mongo_ok = db.col_content().count_documents(
+                                    {"course_code": course["code"],
+                                     "topic_number": idx},
+                                    limit=1
+                                ) > 0
+                            except Exception:
+                                mongo_ok = False
+                        if disk_ok or mongo_ok:
                             c_done += 1
                     courses.append({
                         "code": course["code"],
@@ -180,7 +196,18 @@ def scan_stats():
                     total += len(topics)
                     done += c_done
 
-    pptx = len(list(SLIDES_ROOT.rglob("*.pptx"))) if SLIDES_ROOT.exists() else 0
+    # Count pptx from disk
+    disk_pptx = len(list(SLIDES_ROOT.rglob("*.pptx"))) if SLIDES_ROOT.exists() else 0
+    # Count pptx from MongoDB GridFS
+    mongo_pptx = 0
+    if MONGO_AVAILABLE:
+        try:
+            mongo_pptx = len(db.list_pptx_in_mongo())
+        except Exception:
+            mongo_pptx = 0
+    # Use the larger of the two
+    pptx = max(disk_pptx, mongo_pptx)
+
     pdf = len(list(PDFS_ROOT.rglob("*.pdf"))) if PDFS_ROOT.exists() else 0
 
     return {
@@ -226,7 +253,6 @@ def api_login():
     if not username or not password:
         return jsonify({"ok": False, "error": "Username and password required"}), 400
 
-    # --- Rate limit check ---
     limited, seconds_left = auth.is_rate_limited(username, ip)
     if limited:
         mins = (seconds_left + 59) // 60
@@ -238,7 +264,6 @@ def api_login():
     user = auth.find_user(username)
     ok = bool(user) and auth.verify_password(password, user.get("password_hash", ""))
 
-    # --- Log every attempt ---
     auth.record_login_attempt(username, ip, ok)
 
     if not ok:
@@ -296,7 +321,6 @@ def api_me():
 @app.route("/api/me/password", methods=["POST"])
 @auth.require_auth
 def api_me_password():
-    """Change the current user's own password."""
     body = request.get_json(silent=True) or {}
     old_password = body.get("old_password") or ""
     new_password = body.get("new_password") or ""
@@ -320,7 +344,6 @@ def api_me_password():
 @app.route("/api/me/logins", methods=["GET"])
 @auth.require_auth
 def api_me_logins():
-    """Return recent login attempts for the current user."""
     if not MONGO_AVAILABLE:
         return jsonify({"ok": True, "logins": []})
     me = auth.current_user()
@@ -411,11 +434,43 @@ def api_report_email():
 @app.route("/download/<kind>/<path:filepath>")
 @auth.require_auth
 def download(kind, filepath):
+    """Serve from disk first, then fall back to MongoDB GridFS."""
     root = SLIDES_ROOT if kind == "pptx" else PDFS_ROOT
     target = (root / filepath).resolve()
-    if not str(target).startswith(str(root.resolve())) or not target.exists():
-        return "Not found", 404
-    return send_file(target, as_attachment=True)
+
+    # 1. Disk first
+    if str(target).startswith(str(root.resolve())) and target.exists():
+        return send_file(target, as_attachment=True)
+
+    # 2. GridFS fallback for pptx
+    if kind == "pptx" and MONGO_AVAILABLE:
+        try:
+            parts = Path(filepath).parts
+            if len(parts) >= 5:
+                course_folder = parts[3]
+                cf = course_folder.split("_", 2)
+                if len(cf) >= 3:
+                    course_code = f"{cf[0]} {cf[1]}"
+                    topic_stem = Path(parts[4]).stem
+                    if "_" in topic_stem:
+                        num_str = topic_stem.split("_", 1)[0]
+                        try:
+                            topic_number = int(num_str)
+                        except ValueError:
+                            topic_number = -1
+
+                        data, filename = db.get_pptx_from_mongo(course_code, topic_number)
+                        if data:
+                            return send_file(
+                                io.BytesIO(data),
+                                mimetype="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                                as_attachment=True,
+                                download_name=filename or Path(filepath).name,
+                            )
+        except Exception as e:
+            print(f"[download] GridFS fallback failed: {e}")
+
+    return "Not found", 404
 
 
 # ---------------- MongoDB routes ----------------
@@ -435,6 +490,8 @@ def api_db_status():
                 "slides": db.col_slides().count_documents({}),
                 "users": db.col_users().count_documents({}),
                 "activity": db.col_activity().count_documents({}),
+                "history": db.get_db()["generated_content_history"].count_documents({}),
+                "gridfs_pptx": len(db.list_pptx_in_mongo()),
             }
         except Exception as e:
             counts = {"error": str(e)}
@@ -526,18 +583,42 @@ def api_dashboard():
 @app.route("/api/zip/all")
 @auth.require_auth
 def api_zip_all():
-    if not SLIDES_ROOT.exists():
-        return "No slides found", 404
+    """Zip every pptx — from disk and from MongoDB."""
+    files = {}
 
-    pptx_files = list(SLIDES_ROOT.rglob("*.pptx"))
-    if not pptx_files:
+    # From disk
+    if SLIDES_ROOT.exists():
+        for f in SLIDES_ROOT.rglob("*.pptx"):
+            files[str(f.relative_to(SLIDES_ROOT))] = f.read_bytes()
+
+    # From MongoDB
+    if MONGO_AVAILABLE:
+        try:
+            fs = db.get_fs()
+            for gf in fs.find({}):
+                meta = db.col_slides().find_one(
+                    {"course_code": gf.course_code, "topic_number": gf.topic_number}
+                )
+                rel = meta.get("rel_path") if meta else None
+                if rel:
+                    if rel.startswith("output_slides/"):
+                        rel = rel[len("output_slides/"):]
+                    arcname = rel.replace("\\", "/")
+                else:
+                    arcname = f"{gf.course_code.replace(' ', '_')}/{gf.filename}"
+                # Don't overwrite disk version
+                if arcname not in files:
+                    files[arcname] = gf.read()
+        except Exception as e:
+            print(f"[zip] GridFS failed: {e}")
+
+    if not files:
         return "No slides found", 404
 
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-        for f in pptx_files:
-            arcname = str(f.relative_to(SLIDES_ROOT))
-            zf.write(f, arcname)
+        for arcname, data in files.items():
+            zf.writestr(arcname, data)
     buf.seek(0)
 
     return send_file(
@@ -551,20 +632,40 @@ def api_zip_all():
 @app.route("/api/zip/course/<course_code>")
 @auth.require_auth
 def api_zip_course(course_code):
-    if not SLIDES_ROOT.exists():
-        return "No slides found", 404
-
     needle = course_code.replace(" ", "_")
-    pptx_files = [f for f in SLIDES_ROOT.rglob("*.pptx")
-                  if needle in str(f.parent)]
-    if not pptx_files:
+    files = {}
+
+    if SLIDES_ROOT.exists():
+        for f in SLIDES_ROOT.rglob("*.pptx"):
+            if needle in str(f.parent):
+                files[str(f.relative_to(SLIDES_ROOT))] = f.read_bytes()
+
+    if MONGO_AVAILABLE:
+        try:
+            fs = db.get_fs()
+            for gf in fs.find({"course_code": course_code}):
+                meta = db.col_slides().find_one(
+                    {"course_code": gf.course_code, "topic_number": gf.topic_number}
+                )
+                rel = meta.get("rel_path") if meta else None
+                if rel:
+                    if rel.startswith("output_slides/"):
+                        rel = rel[len("output_slides/"):]
+                    arcname = rel.replace("\\", "/")
+                else:
+                    arcname = f"{needle}/{gf.filename}"
+                if arcname not in files:
+                    files[arcname] = gf.read()
+        except Exception:
+            pass
+
+    if not files:
         return f"No slides found for {course_code}", 404
 
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-        for f in pptx_files:
-            arcname = str(f.relative_to(SLIDES_ROOT))
-            zf.write(f, arcname)
+        for arcname, data in files.items():
+            zf.writestr(arcname, data)
     buf.seek(0)
 
     safe = course_code.replace(" ", "_")
@@ -576,7 +677,7 @@ def api_zip_course(course_code):
     )
 
 
-# ---------------- User management (admin only) ----------------
+# ---------------- User management ----------------
 
 @app.route("/api/users", methods=["GET"])
 @auth.require_role("admin")
@@ -711,12 +812,11 @@ def api_users_password(username):
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
-# ---------------- Content history (admin only) ----------------
+# ---------------- Content history ----------------
 
 @app.route("/api/history/<course_code>/<int:topic_number>")
 @auth.require_role("admin")
 def api_history(course_code, topic_number):
-    """Return all archived versions of a topic."""
     if not MONGO_AVAILABLE:
         return jsonify({"ok": False, "error": "MongoDB not available"}), 503
     try:
@@ -735,7 +835,6 @@ def api_history(course_code, topic_number):
 @app.route("/api/history/stats")
 @auth.require_role("admin")
 def api_history_stats():
-    """Return count of archived versions per course."""
     if not MONGO_AVAILABLE:
         return jsonify({"ok": False, "error": "MongoDB not available"}), 503
     try:
@@ -749,6 +848,95 @@ def api_history_stats():
             "ok": True,
             "total_archived": total,
             "by_course": [{"course_code": r["_id"], "count": r["count"]} for r in rows]
+        })
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+# ---------------- GridFS file storage ----------------
+
+@app.route("/api/mongo-files")
+@auth.require_role("admin")
+def api_mongo_files():
+    if not MONGO_AVAILABLE:
+        return jsonify({"ok": False, "error": "MongoDB not available"}), 503
+    try:
+        files = db.list_pptx_in_mongo()
+        return jsonify({"ok": True, "files": files, "count": len(files)})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/mongo-stats")
+@auth.require_role("admin")
+def api_mongo_stats():
+    if not MONGO_AVAILABLE:
+        return jsonify({"ok": False, "error": "MongoDB not available"}), 503
+    try:
+        files = db.list_pptx_in_mongo()
+        total_bytes = sum(f.get("length", 0) for f in files)
+        by_course = {}
+        for f in files:
+            cc = f.get("course_code", "?")
+            by_course[cc] = by_course.get(cc, 0) + 1
+        return jsonify({
+            "ok": True,
+            "total_files": len(files),
+            "total_bytes": total_bytes,
+            "total_mb": round(total_bytes / 1024 / 1024, 2),
+            "by_course": [{"course_code": k, "count": v}
+                          for k, v in sorted(by_course.items(), key=lambda x: -x[1])]
+        })
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/restore", methods=["POST"])
+@auth.require_permission("rebuild")
+def api_restore():
+    """Rebuild pptx files on disk from MongoDB GridFS."""
+    if not MONGO_AVAILABLE:
+        return jsonify({"ok": False, "error": "MongoDB not available"}), 503
+    try:
+        fs = db.get_fs()
+        restored = 0
+        skipped = 0
+
+        for f in fs.find({}):
+            course_code = f.course_code
+            topic_number = f.topic_number
+            filename = f.filename
+
+            meta = db.col_slides().find_one(
+                {"course_code": course_code, "topic_number": topic_number}
+            )
+            if meta and meta.get("rel_path"):
+                rel = meta["rel_path"].replace("\\", "/")
+                if rel.startswith("output_slides/"):
+                    rel = rel[len("output_slides/"):]
+                target = SLIDES_ROOT / rel
+            else:
+                safe = course_code.replace(" ", "_")
+                target = SLIDES_ROOT / "restored" / safe / filename
+
+            target.parent.mkdir(parents=True, exist_ok=True)
+
+            if target.exists() and target.stat().st_size > 0:
+                skipped += 1
+                continue
+
+            try:
+                with open(target, "wb") as out:
+                    out.write(f.read())
+                restored += 1
+            except Exception as e:
+                print(f"[restore] {filename}: {e}")
+
+        return jsonify({
+            "ok": True,
+            "restored": restored,
+            "skipped": skipped,
+            "message": f"Restored {restored} files, skipped {skipped}"
         })
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
