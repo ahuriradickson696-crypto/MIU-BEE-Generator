@@ -15,6 +15,7 @@ import SearchBar from './components/SearchBar'
 import ZipButtons from './components/ZipButtons'
 import Dashboard from './components/Dashboard'
 import Login from './components/Login'
+import UserManagement from './components/UserManagement'
 
 const ROLE_LABELS = {
   admin: '🛡️ Admin',
@@ -37,6 +38,7 @@ export default function App() {
     () => localStorage.getItem('miu_bee_prayer_seen') !== 'yes'
   )
   const [view, setView] = useState('overview')
+  const [adminTab, setAdminTab] = useState('main')  // 'main' | 'users'
 
   const logIndexRef = useRef(0)
 
@@ -178,6 +180,27 @@ export default function App() {
               {view === 'overview' ? '📊 Dashboard' : '📋 Overview'}
             </button>
 
+            {user.role === 'admin' && (
+              <button
+                onClick={() => setAdminTab(t => t === 'users' ? 'main' : 'users')}
+                style={{
+                  background: adminTab === 'users'
+                    ? 'rgba(255,255,255,.35)'
+                    : 'rgba(255,255,255,.18)',
+                  border: '1px solid rgba(255,255,255,.3)',
+                  color: 'white',
+                  padding: '8px 16px',
+                  borderRadius: 999,
+                  cursor: 'pointer',
+                  fontSize: 13,
+                  fontWeight: 600,
+                  fontFamily: 'inherit'
+                }}
+              >
+                {adminTab === 'users' ? '📋 Back to App' : '👥 Manage Users'}
+              </button>
+            )}
+
             <AnimatePresence>
               {stats.running && stats.task && (
                 <motion.div
@@ -236,6 +259,15 @@ export default function App() {
       </header>
 
       <main className="main">
+        {user.role === 'admin' && adminTab === 'users' && (
+          <div className="panel" style={{ marginBottom: 20 }}>
+            <h2>User Management</h2>
+            <UserManagement onToast={addToast} />
+          </div>
+        )}
+
+        {adminTab === 'main' && (
+        <>
         <motion.div
           className="stats-grid"
           initial="hidden"
@@ -317,6 +349,8 @@ export default function App() {
           <h2>Course Breakdown</h2>
           <CourseTable courses={stats.courses} />
         </div>
+        </>
+        )}
       </main>
 
       <Toasts items={toasts} />

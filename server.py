@@ -16,6 +16,7 @@ Endpoints:
   POST /api/login              → login
   POST /api/logout             → logout
   GET  /api/me                 → current user info + permissions
+  GET/POST/PATCH/DELETE /api/users  → admin user management
   GET  /                       → serves React build if present
 """
 
@@ -25,6 +26,7 @@ import subprocess
 import threading
 import sys
 import zipfile
+from datetime import datetime, timezone
 from pathlib import Path
 from flask import (
     Flask, jsonify, request, send_from_directory, send_file, make_response
@@ -497,6 +499,141 @@ def api_zip_course(course_code):
         as_attachment=True,
         download_name=f"{safe}_slides.zip"
     )
+
+
+# ---------------- User management (admin only) ----------------
+
+@app.route("/api/users", methods=["GET"])
+@auth.require_role("admin")
+def api_users_list():
+    if not MONGO_AVAILABLE:
+        return jsonify({"ok": False, "error": "MongoDB not available"}), 503
+    try:
+        users = list(db.col_users().find(
+            {},
+            {"_id": 0, "password_hash": 0}
+        ).sort("username", 1))
+        for u in users:
+            if "created_at" in u and hasattr(u["created_at"], "isoformat"):
+                u["created_at"] = u["created_at"].isoformat()
+        return jsonify({"ok": True, "users": users})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/users", methods=["POST"])
+@auth.require_role("admin")
+def api_users_create():
+    if not MONGO_AVAILABLE:
+        return jsonify({"ok": False, "error": "MongoDB not available"}), 503
+    body = request.get_json(silent=True) or {}
+    username = (body.get("username") or "").strip()
+    password = body.get("password") or ""
+    email = (body.get("email") or "").strip()
+    role = (body.get("role") or "viewer").lower()
+
+    if not username or not password:
+        return jsonify({"ok": False, "error": "Username and password required"}), 400
+    if role not in ("admin", "lecturer", "viewer"):
+        return jsonify({"ok": False, "error": "Invalid role"}), 400
+    if len(password) < 6:
+        return jsonify({"ok": False, "error": "Password must be at least 6 characters"}), 400
+
+    if auth.find_user(username):
+        return jsonify({"ok": False, "error": "Username already exists"}), 409
+
+    try:
+        db.col_users().insert_one({
+            "username": username,
+            "email": email,
+            "password_hash": auth.hash_password(password),
+            "role": role,
+            "created_at": datetime.now(timezone.utc),
+        })
+        db.log_activity("user_created", f"user={username} role={role}",
+                        user=auth.current_user())
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/users/<username>", methods=["PATCH"])
+@auth.require_role("admin")
+def api_users_update(username):
+    if not MONGO_AVAILABLE:
+        return jsonify({"ok": False, "error": "MongoDB not available"}), 503
+    body = request.get_json(silent=True) or {}
+    updates = {}
+
+    if "role" in body:
+        role = (body["role"] or "").lower()
+        if role not in ("admin", "lecturer", "viewer"):
+            return jsonify({"ok": False, "error": "Invalid role"}), 400
+        updates["role"] = role
+
+    if "email" in body:
+        updates["email"] = (body["email"] or "").strip()
+
+    if "password" in body and body["password"]:
+        if len(body["password"]) < 6:
+            return jsonify({"ok": False, "error": "Password too short"}), 400
+        updates["password_hash"] = auth.hash_password(body["password"])
+
+    if not updates:
+        return jsonify({"ok": False, "error": "Nothing to update"}), 400
+
+    try:
+        res = db.col_users().update_one({"username": username}, {"$set": updates})
+        if res.matched_count == 0:
+            return jsonify({"ok": False, "error": "User not found"}), 404
+        db.log_activity("user_updated", f"user={username} fields={list(updates)}",
+                        user=auth.current_user())
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/users/<username>", methods=["DELETE"])
+@auth.require_role("admin")
+def api_users_delete(username):
+    if not MONGO_AVAILABLE:
+        return jsonify({"ok": False, "error": "MongoDB not available"}), 503
+
+    me = auth.current_user()
+    if username == me:
+        return jsonify({"ok": False, "error": "Cannot delete your own account"}), 400
+
+    try:
+        res = db.col_users().delete_one({"username": username})
+        if res.deleted_count == 0:
+            return jsonify({"ok": False, "error": "User not found"}), 404
+        db.log_activity("user_deleted", f"user={username}", user=me)
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/users/<username>/password", methods=["POST"])
+@auth.require_role("admin")
+def api_users_password(username):
+    if not MONGO_AVAILABLE:
+        return jsonify({"ok": False, "error": "MongoDB not available"}), 503
+    body = request.get_json(silent=True) or {}
+    new_password = body.get("password") or ""
+    if len(new_password) < 6:
+        return jsonify({"ok": False, "error": "Password must be at least 6 characters"}), 400
+    try:
+        res = db.col_users().update_one(
+            {"username": username},
+            {"$set": {"password_hash": auth.hash_password(new_password)}}
+        )
+        if res.matched_count == 0:
+            return jsonify({"ok": False, "error": "User not found"}), 404
+        db.log_activity("password_reset", f"user={username}",
+                        user=auth.current_user())
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
 
 
 # ---- Serve React build ----

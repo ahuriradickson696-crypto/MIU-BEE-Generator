@@ -56,6 +56,31 @@ export const api = {
   // ---- Admin ----
   dbStatus: () => jsonFetch(`${BASE}/api/db/status`),
 
+  // ---- User management (admin only) ----
+  listUsers: () => jsonFetch(`${BASE}/api/users`),
+  createUser: (payload) =>
+    jsonFetch(`${BASE}/api/users`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }),
+  updateUser: (username, payload) =>
+    jsonFetch(`${BASE}/api/users/${encodeURIComponent(username)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }),
+  deleteUser: (username) =>
+    jsonFetch(`${BASE}/api/users/${encodeURIComponent(username)}`, {
+      method: 'DELETE'
+    }),
+  resetPassword: (username, password) =>
+    jsonFetch(`${BASE}/api/users/${encodeURIComponent(username)}/password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password })
+    }),
+
   // ---- Downloads ----
   downloadUrl: (kind, path) =>
     `${BASE}/download/${kind}/${encodeURIComponent(path).replace(/%2F/g, '/')}`
