@@ -73,7 +73,7 @@ export default function App() {
       } catch { /* ignore */ }
     }
     tick()
-    const id = setInterval(tick, 2000)
+    const id = setInterval(tick, 10000)
     return () => { mounted = false; clearInterval(id) }
   }, [user])
 
@@ -90,7 +90,7 @@ export default function App() {
       } catch { /* ignore */ }
     }
     tick()
-    const id = setInterval(tick, 1000)
+    const id = setInterval(tick, 15000)
     return () => { mounted = false; clearInterval(id) }
   }, [user])
 
@@ -105,7 +105,7 @@ export default function App() {
       } catch { /* ignore */ }
     }
     fetchTrees()
-    const id = setInterval(fetchTrees, 8000)
+    const id = setInterval(fetchTrees, 30000)
     return () => clearInterval(id)
   }, [user])
 
