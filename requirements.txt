@@ -3,7 +3,7 @@
 # Install with:  pip install -r requirements.txt
 # ================================================
 
-# ---- Production WSGI server (required by Render) ----
+# ---- Production WSGI server ----
 gunicorn==21.2.0
 
 # ---- Flask web framework ----
@@ -13,7 +13,7 @@ flask-cors>=4.0.0
 # ---- Core: PowerPoint generation ----
 python-pptx>=0.6.23
 
-# ---- Environment variables (.env file) ----
+# ---- Environment variables ----
 python-dotenv>=1.0.0
 
 # ---- AI providers ----
@@ -21,5 +21,9 @@ groq>=0.11.0
 google-generativeai>=0.8.3
 mistralai>=1.2.0
 
-# ---- JSON repair (fixes malformed AI responses) ----
+# ---- JSON repair ----
 json-repair>=0.30.0
+
+# ---- MongoDB ----
+pymongo==4.10.1
+dnspython==2.7.0
