@@ -14,6 +14,9 @@ import Actions from './components/Actions'
 import CourseTable from './components/CourseTable'
 import Toasts from './components/Toasts'
 import PrayerPage from './components/PrayerPage'
+import SearchBar from './components/SearchBar'
+import ZipButtons from './components/ZipButtons'
+import Dashboard from './components/Dashboard'
 
 export default function App() {
   const [stats, setStats] = useState({
@@ -27,6 +30,7 @@ export default function App() {
   const [showPrayer, setShowPrayer] = useState(
     () => localStorage.getItem('miu_bee_prayer_seen') !== 'yes'
   )
+  const [view, setView] = useState('overview')  // 'overview' | 'dashboard'
 
   const logIndexRef = useRef(0)
 
@@ -135,6 +139,25 @@ export default function App() {
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <SearchBar onToast={addToast} />
+
+            <button
+              onClick={() => setView(v => v === 'overview' ? 'dashboard' : 'overview')}
+              style={{
+                background: 'rgba(255,255,255,.18)',
+                border: '1px solid rgba(255,255,255,.3)',
+                color: 'white',
+                padding: '8px 16px',
+                borderRadius: 999,
+                cursor: 'pointer',
+                fontSize: 13,
+                fontWeight: 600,
+                fontFamily: 'inherit'
+              }}
+            >
+              {view === 'overview' ? '📊 Dashboard' : '📋 Overview'}
+            </button>
+
             <AnimatePresence>
               {stats.running && stats.task && (
                 <motion.div
@@ -223,6 +246,20 @@ export default function App() {
             <LiveLog lines={logs} />
           </div>
         </div>
+
+        {/* ZIP downloads */}
+        <div className="panel" style={{ marginBottom: 20 }}>
+          <h2>Downloads</h2>
+          <ZipButtons pptxCount={stats.pptx} />
+        </div>
+
+        {/* Dashboard (only when view === 'dashboard') */}
+        {view === 'dashboard' && (
+          <div className="panel" style={{ marginBottom: 20 }}>
+            <h2>Dashboard</h2>
+            <Dashboard />
+          </div>
+        )}
 
         {/* Files tabs */}
         <div className="panel" style={{ marginBottom: 20 }}>
