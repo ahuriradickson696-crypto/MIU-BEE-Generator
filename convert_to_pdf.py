@@ -1,18 +1,7 @@
 """
-convert_to_pdf.py
-Converts every .pptx in output_slides\  →  matching .pdf in output_pdfs\
-preserving the exact MIU nested tree:
-
-    output_slides\BEE\Year_X\Semester_Y\Course\NN_Topic.pptx
-    output_pdfs\BEE\Year_X\Semester_Y\Course\NN_Topic.pdf
-
-Requires LibreOffice (preferred) or MS PowerPoint + pywin32.
-
-Usage:
-    python convert_to_pdf.py                    # convert everything
-    python convert_to_pdf.py --skip-existing    # skip already-converted PDFs
-    python convert_to_pdf.py --course "BEE 1101"  # one course only
+Converts .pptx files to PDF while preserving the MIU nested tree.
 """
+
 
 import sys
 import subprocess
@@ -43,8 +32,8 @@ def parse_args():
 
 def find_libreoffice():
     candidates = [
-        r"C:\Program Files\LibreOffice\program\soffice.exe",
-        r"C:\Program Files (x86)\LibreOffice\program\soffice.exe",
+        r"C:\\Program Files\LibreOffice\program\soffice.exe",
+        r"C:\\Program Files (x86)\LibreOffice\program\soffice.exe",
     ]
     for c in candidates:
         if Path(c).exists():

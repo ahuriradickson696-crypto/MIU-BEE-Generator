@@ -1,19 +1,7 @@
 """
-cleanup.py
-Cleans up junk from the MIU nested tree:
-  - Empty/tiny .pptx files (failed generations)
-  - Corrupt or tiny cached JSON
-  - Orphan cache entries (topics no longer in curriculum.json)
-  - Orphan PDFs (source pptx missing)
-  - Empty leftover folders (Year_X, Semester_Y, Course)
-
-Safe by default — dry run shows what WOULD be deleted.
-
-Usage:
-    python cleanup.py                 # dry run
-    python cleanup.py --apply         # actually delete
-    python cleanup.py --apply --pptx-only   # skip cache/PDF checks
+Removes junk files from the MIU nested tree.
 """
+
 
 import sys
 import json

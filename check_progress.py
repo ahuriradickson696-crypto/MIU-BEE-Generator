@@ -1,9 +1,7 @@
 """
-check_progress.py
-Walks the MIU nested tree:
-    generated_content\BEE\Year_X\Semester_Y\BEE_XXXX_Course\NN_Topic.json
-and reports per-course / per-semester / per-year / programme progress.
+Walks the nested MIU cache tree and reports per-course progress.
 """
+
 
 import json
 from pathlib import Path
