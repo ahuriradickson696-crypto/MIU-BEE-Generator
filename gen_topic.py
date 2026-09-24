@@ -72,14 +72,9 @@ for k in [GROQ_API_KEY, GROQ_API_KEY_2]:
         except Exception as e:
             print(f"[groq init failed] {e}")
 
+# Gemini disabled - package removed to fix Render build
 gemini_model = None
-if GEMINI_API_KEY:
-    try:
-        import google.generativeai as genai
-        genai.configure(api_key=GEMINI_API_KEY)
-        gemini_model = genai.GenerativeModel("gemini-2.5-flash")
-    except Exception as e:
-        print(f"[gemini init failed] {e}")
+print("[gemini] Skipped (not installed)")
 
 mistral_client = None
 if MISTRAL_API_KEY:
@@ -211,9 +206,8 @@ def call_groq(client_index, system_prompt, user_prompt):
 
 
 def call_gemini(system_prompt, user_prompt):
-    print("    [content] Calling Gemini...")
-    response = gemini_model.generate_content(f"{system_prompt}\n\n{user_prompt}")
-    return response.text
+    # Gemini is disabled - package removed
+    raise Exception("Gemini disabled")
 
 
 def call_mistral(system_prompt, user_prompt, max_retries=5):
