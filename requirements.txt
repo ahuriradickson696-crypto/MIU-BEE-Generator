@@ -1,35 +1,21 @@
-# ================================================
-# MIU BEE Generator - Python Dependencies
-# ================================================
-
-# ---- Production WSGI server ----
 gunicorn==21.2.0
-
-# ---- Flask ----
 flask==3.1.0
 flask-cors==5.0.0
-
-# ---- PowerPoint generation ----
 python-pptx==1.0.2
-
-# ---- Environment variables ----
 python-dotenv==1.0.1
-
-# ---- AI providers ----
 groq==0.11.0
 google-generativeai==0.8.3
+google-api-core==2.25.2
+google-ai-generativelanguage==0.6.10
+googleapis-common-protos==1.65.0
+grpcio==1.68.0
+grpcio-status==1.68.0
+protobuf==4.25.5
+proto-plus==1.24.0
 mistralai==1.2.0
-
-# ---- JSON repair ----
 json-repair==0.30.0
-
-# ---- MongoDB ----
 pymongo==4.10.1
 dnspython==2.7.0
-
-# ---- Authentication ----
 bcrypt==4.2.0
 itsdangerous==2.2.0
-
-# ---- Scheduler ----
 apscheduler==3.10.4
