@@ -2,6 +2,8 @@ import React, { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { api } from './api'
 import { useAuth } from './useAuth'
+import { useTheme } from './useTheme'
+import { useNotifications } from './useNotifications'
 
 import StatCard from './components/StatCard'
 import ProgressRing from './components/ProgressRing'
@@ -25,6 +27,7 @@ const ROLE_LABELS = {
 
 export default function App() {
   const { user, authChecked, logout } = useAuth()
+  const { theme, toggle } = useTheme()
 
   const [stats, setStats] = useState({
     total: 0, done: 0, remaining: 0, pptx: 0, pdf: 0,
@@ -47,6 +50,12 @@ export default function App() {
     setToasts(t => [...t, { id, msg, type }])
     setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), 4200)
   }
+
+  // Browser notifications — fire when generation finishes
+  const notif = useNotifications(stats, (result) => {
+    if (result === 'granted') addToast('Notifications enabled 🔔', 'success')
+    else addToast('Notifications blocked', 'error')
+  })
 
   // Poll stats every 2s
   useEffect(() => {
@@ -145,6 +154,17 @@ export default function App() {
   }
 
   const roleLabel = ROLE_LABELS[user.role] || user.role
+  const pillBtn = {
+    background: 'rgba(255,255,255,.18)',
+    border: '1px solid rgba(255,255,255,.3)',
+    color: 'white',
+    padding: '8px 12px',
+    borderRadius: 999,
+    cursor: 'pointer',
+    fontSize: 14,
+    fontFamily: 'inherit',
+    lineHeight: 1
+  }
 
   return (
     <div className="app">
@@ -214,6 +234,26 @@ export default function App() {
                 </motion.div>
               )}
             </AnimatePresence>
+
+            {/* Enable notifications (only if not granted) */}
+            {notif.supported && notif.permission !== 'granted' && (
+              <button
+                onClick={notif.requestPermission}
+                title="Enable notifications"
+                style={pillBtn}
+              >
+                🔔
+              </button>
+            )}
+
+            {/* Dark mode toggle */}
+            <button
+              onClick={toggle}
+              title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+              style={pillBtn}
+            >
+              {theme === 'light' ? '🌙' : '☀️'}
+            </button>
 
             <button
               onClick={() => setShowPrayer(true)}

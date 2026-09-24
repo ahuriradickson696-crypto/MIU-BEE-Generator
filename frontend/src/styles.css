@@ -480,3 +480,159 @@ body {
   from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: translateY(0); }
 }
+
+/* ============ Dark mode ============ */
+
+[data-theme="dark"] {
+  --bg: #0F1216;
+  --bg-dark: #05070A;
+  --card: #1A1F26;
+  --text: #E5E7EB;
+  --muted: #9CA3AF;
+  --border: #2E3440;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, .4);
+  --shadow: 0 4px 14px rgba(0, 0, 0, .45);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, .55);
+}
+
+[data-theme="dark"] body {
+  background: var(--bg);
+  color: var(--text);
+}
+
+[data-theme="dark"] .panel,
+[data-theme="dark"] .stat-card {
+  background: var(--card);
+  color: var(--text);
+}
+
+[data-theme="dark"] .stat-card .stat-value {
+  color: #4ADE80;
+}
+
+[data-theme="dark"] .stat-card.danger .stat-value {
+  color: #F87171;
+}
+
+[data-theme="dark"] .stat-card.info .stat-value {
+  color: #60A5FA;
+}
+
+[data-theme="dark"] .stat-card.amber .stat-value {
+  color: #FBBF24;
+}
+
+[data-theme="dark"] .stat-label,
+[data-theme="dark"] .stat-sub,
+[data-theme="dark"] .muted {
+  color: var(--muted);
+}
+
+[data-theme="dark"] .tree-folder {
+  color: #D1D5DB;
+}
+
+[data-theme="dark"] .tree-folder:hover {
+  background: #252B35;
+}
+
+[data-theme="dark"] .tree-file {
+  color: #4ADE80;
+}
+
+[data-theme="dark"] .tree-file:hover {
+  background: #1F2937;
+}
+
+[data-theme="dark"] .tree-children {
+  border-left-color: #2E3440;
+}
+
+[data-theme="dark"] .tab {
+  color: var(--muted);
+}
+
+[data-theme="dark"] .tab:hover {
+  color: var(--text);
+}
+
+[data-theme="dark"] .tab.active {
+  color: #4ADE80;
+  border-bottom-color: #4ADE80;
+}
+
+[data-theme="dark"] .tabs {
+  border-bottom-color: var(--border);
+}
+
+[data-theme="dark"] .progress-track {
+  background: #252B35;
+}
+
+[data-theme="dark"] input,
+[data-theme="dark"] select,
+[data-theme="dark"] textarea {
+  background: #252B35;
+  border-color: #374151;
+  color: var(--text);
+}
+
+[data-theme="dark"] input::placeholder {
+  color: #6B7280;
+}
+
+[data-theme="dark"] table thead tr {
+  background: #252B35 !important;
+}
+
+[data-theme="dark"] table td,
+[data-theme="dark"] table th {
+  color: var(--text);
+  border-bottom-color: #2E3440;
+}
+
+[data-theme="dark"] table tr:hover {
+  background: #1F252E;
+}
+
+[data-theme="dark"] .toast {
+  background: #252B35;
+  color: var(--text);
+  border-left-color: #4ADE80;
+}
+
+[data-theme="dark"] .toast.error {
+  border-left-color: #F87171;
+}
+
+[data-theme="dark"] .btn-outline {
+  background: var(--card);
+  color: var(--text);
+  border-color: var(--border);
+}
+
+[data-theme="dark"] .btn-outline:hover:not(:disabled) {
+  background: #252B35;
+}
+
+[data-theme="dark"] .log {
+  background: #05070A;
+  border: 1px solid #1F2937;
+}
+
+[data-theme="dark"] h2 {
+  color: #4ADE80;
+}
+
+[data-theme="dark"] .progress-fill {
+  background: linear-gradient(90deg, #00823C, #4ADE80);
+}
+
+[data-theme="dark"] .stat-card {
+  border-left-width: 4px;
+}
+
+[data-theme="dark"] .task-badge {
+  background: rgba(255, 255, 255, .12);
+  border-color: rgba(255, 255, 255, .2);
+}

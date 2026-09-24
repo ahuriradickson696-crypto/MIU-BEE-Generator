@@ -5,9 +5,22 @@ import { AuthProvider } from './useAuth.js'
 import './styles.css'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
-    <AuthProvider>
-      <App />
-    </AuthProvider>
-  </React.StrictMode>
+  React.createElement(
+    React.StrictMode,
+    null,
+    React.createElement(
+      AuthProvider,
+      null,
+      React.createElement(App)
+    )
+  )
 )
+
+// ---- PWA registration ----
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(err => {
+      console.warn('SW registration failed:', err)
+    })
+  })
+}

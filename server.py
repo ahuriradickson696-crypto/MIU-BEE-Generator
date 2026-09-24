@@ -61,6 +61,13 @@ try:
 except Exception as e:
     print(f"[auth] startup hook failed: {e}")
 
+# Start background scheduler (only if AUTO_GENERATE=true)
+try:
+    import scheduler
+    scheduler.start()
+except Exception as e:
+    print(f"[scheduler] startup failed: {e}")
+
 
 def python_exe():
     if VENV_PY.exists():

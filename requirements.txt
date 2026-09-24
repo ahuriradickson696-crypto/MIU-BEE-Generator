@@ -27,3 +27,6 @@ json-repair>=0.30.0
 # ---- MongoDB ----
 pymongo==4.10.1
 dnspython==2.7.0
+
+# ---- Scheduler ----
+apscheduler==3.10.4
