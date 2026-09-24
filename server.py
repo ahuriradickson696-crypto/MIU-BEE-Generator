@@ -13,6 +13,9 @@ Endpoints:
   GET  /api/dashboard          → stats + charts data
   GET  /api/zip/all            → download all slides as zip
   GET  /api/zip/course/<code>  → download one course as zip
+  POST /api/login              → login
+  POST /api/logout             → logout
+  GET  /api/me                 → current user info
   GET  /                       → serves React build if present
 """
 
@@ -23,7 +26,9 @@ import threading
 import sys
 import zipfile
 from pathlib import Path
-from flask import Flask, jsonify, request, send_from_directory, send_file
+from flask import (
+    Flask, jsonify, request, send_from_directory, send_file, make_response
+)
 from flask_cors import CORS
 
 import mailer
@@ -35,6 +40,8 @@ except Exception as e:
     print(f"[db] MongoDB not available: {e}")
     MONGO_AVAILABLE = False
 
+import auth
+
 BASE = Path(__file__).parent
 CURRICULUM = BASE / "curriculum.json"
 CACHE_ROOT = BASE / "generated_content"
@@ -44,7 +51,13 @@ FRONTEND_DIST = BASE / "frontend" / "dist"
 VENV_PY = BASE / ".venv" / "Scripts" / "python.exe"
 
 app = Flask(__name__, static_folder=None)
-CORS(app)
+CORS(app, supports_credentials=True)
+
+# Create the default admin user on startup
+try:
+    auth.create_default_admin()
+except Exception as e:
+    print(f"[auth] startup hook failed: {e}")
 
 
 def python_exe():
@@ -188,14 +201,70 @@ def build_tree(root, rel=""):
     return node
 
 
-# ---------------- Routes ----------------
+# ============ Auth routes (public) ============
+
+@app.route("/api/login", methods=["POST"])
+def api_login():
+    body = request.get_json(silent=True) or {}
+    username = (body.get("username") or "").strip()
+    password = body.get("password") or ""
+
+    if not username or not password:
+        return jsonify({"ok": False, "error": "Username and password required"}), 400
+
+    user = auth.find_user(username)
+    if not user or not auth.verify_password(password, user.get("password_hash", "")):
+        if MONGO_AVAILABLE:
+            try:
+                db.log_activity("login_failed", f"user={username}")
+            except Exception:
+                pass
+        return jsonify({"ok": False, "error": "Invalid credentials"}), 401
+
+    resp = make_response(jsonify({
+        "ok": True,
+        "user": {
+            "username": user["username"],
+            "role": user.get("role", "viewer"),
+            "email": user.get("email", ""),
+        }
+    }))
+    return auth.set_session_cookie(resp, user["username"])
+
+
+@app.route("/api/logout", methods=["POST"])
+def api_logout():
+    resp = make_response(jsonify({"ok": True}))
+    return auth.clear_session_cookie(resp)
+
+
+@app.route("/api/me")
+def api_me():
+    user = auth.current_user()
+    if not user:
+        return jsonify({"ok": False, "authenticated": False}), 200
+    doc = auth.find_user(user) or {}
+    return jsonify({
+        "ok": True,
+        "authenticated": True,
+        "user": {
+            "username": user,
+            "role": doc.get("role", "viewer"),
+            "email": doc.get("email", ""),
+        }
+    })
+
+
+# ============ Protected routes ============
 
 @app.route("/api/stats")
+@auth.require_auth
 def api_stats():
     return jsonify(scan_stats())
 
 
 @app.route("/api/logs")
+@auth.require_auth
 def api_logs():
     since = int(request.args.get("since", 0))
     with state.lock:
@@ -205,6 +274,7 @@ def api_logs():
 
 
 @app.route("/api/tree")
+@auth.require_auth
 def api_tree():
     kind = request.args.get("kind", "pptx")
     root = SLIDES_ROOT if kind == "pptx" else PDFS_ROOT if kind == "pdf" else CACHE_ROOT
@@ -212,6 +282,7 @@ def api_tree():
 
 
 @app.route("/api/run/<task>", methods=["POST"])
+@auth.require_auth
 def api_run(task):
     tasks = {
         "generate": ("gen_topic.py", None, "Generating slides"),
@@ -230,6 +301,7 @@ def api_run(task):
 
 
 @app.route("/api/stop", methods=["POST"])
+@auth.require_auth
 def api_stop():
     if state.proc and state.proc.poll() is None:
         state.proc.terminate()
@@ -239,6 +311,7 @@ def api_stop():
 
 
 @app.route("/api/report/email", methods=["POST"])
+@auth.require_auth
 def api_report_email():
     body = request.get_json(silent=True) or {}
     label = body.get("label", "Manual Report")
@@ -247,6 +320,7 @@ def api_report_email():
 
 
 @app.route("/download/<kind>/<path:filepath>")
+@auth.require_auth
 def download(kind, filepath):
     root = SLIDES_ROOT if kind == "pptx" else PDFS_ROOT
     target = (root / filepath).resolve()
@@ -255,9 +329,10 @@ def download(kind, filepath):
     return send_file(target, as_attachment=True)
 
 
-# ---------------- NEW MongoDB routes ----------------
+# ---------------- MongoDB routes ----------------
 
 @app.route("/api/db/status")
+@auth.require_auth
 def api_db_status():
     if not MONGO_AVAILABLE:
         return jsonify({"ok": False, "message": "MongoDB module not loaded"})
@@ -278,6 +353,7 @@ def api_db_status():
 
 
 @app.route("/api/search")
+@auth.require_auth
 def api_search():
     if not MONGO_AVAILABLE:
         return jsonify({"ok": False, "error": "MongoDB not available"}), 503
@@ -311,6 +387,7 @@ def api_search():
 
 
 @app.route("/api/dashboard")
+@auth.require_auth
 def api_dashboard():
     stats = scan_stats()
 
@@ -358,6 +435,7 @@ def api_dashboard():
 
 
 @app.route("/api/zip/all")
+@auth.require_auth
 def api_zip_all():
     if not SLIDES_ROOT.exists():
         return "No slides found", 404
@@ -382,6 +460,7 @@ def api_zip_all():
 
 
 @app.route("/api/zip/course/<course_code>")
+@auth.require_auth
 def api_zip_course(course_code):
     if not SLIDES_ROOT.exists():
         return "No slides found", 404
