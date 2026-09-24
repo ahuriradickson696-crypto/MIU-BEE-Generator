@@ -250,12 +250,19 @@ def list_pptx_in_mongo():
     try:
         fs = get_fs()
         out = []
-        for f in fs.find({}, {"_id": 0, "filename": 1, "course_code": 1,
-                              "topic_number": 1, "uploaded_at": 1,
-                              "length": 1, "chunkSize": 1}):
-            if "uploaded_at" in f and hasattr(f["uploaded_at"], "isoformat"):
-                f["uploaded_at"] = f["uploaded_at"].isoformat()
-            out.append(f)
+        for f in fs.find({}):
+            doc = {
+                "filename": f.filename,
+                "course_code": getattr(f, "course_code", None),
+                "topic_number": getattr(f, "topic_number", None),
+                "length": f.length,
+            }
+            if hasattr(f, "uploaded_at") and f.uploaded_at:
+                if hasattr(f.uploaded_at, "isoformat"):
+                    doc["uploaded_at"] = f.uploaded_at.isoformat()
+                else:
+                    doc["uploaded_at"] = str(f.uploaded_at)
+            out.append(doc)
         return out
     except Exception as e:
         print(f"[gridfs] list failed: {e}")
