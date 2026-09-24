@@ -29,6 +29,7 @@ Endpoints:
 
 import io
 import json
+import os
 import subprocess
 import threading
 import sys
@@ -68,12 +69,16 @@ try:
 except Exception as e:
     print(f"[auth] startup hook failed: {e}")
 
-# Start background scheduler (only if AUTO_GENERATE=true)
-try:
-    import scheduler
-    scheduler.start()
-except Exception as e:
-    print(f"[scheduler] startup failed: {e}")
+# Start background scheduler ONLY if explicitly enabled
+# (APScheduler uses ~50 MB RAM - disable on free tier)
+if os.environ.get("AUTO_GENERATE", "false").lower() == "true":
+    try:
+        import scheduler
+        scheduler.start()
+    except Exception as e:
+        print(f"[scheduler] startup failed: {e}")
+else:
+    print("[scheduler] Disabled to save memory (set AUTO_GENERATE=true to enable)")
 
 
 def python_exe():
