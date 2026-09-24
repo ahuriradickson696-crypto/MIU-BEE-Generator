@@ -144,7 +144,7 @@ export default function App() {
         minHeight: '100vh', display: 'flex',
         alignItems: 'center', justifyContent: 'center',
         background: '#F4F6F8', color: '#666', fontSize: 14
-      }}>Loading...</div>
+      }}>Starting up... (first load can take 30 sec while server wakes)</div>
     )
   }
 
