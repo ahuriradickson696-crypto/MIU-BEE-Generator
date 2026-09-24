@@ -1,20 +1,27 @@
 // api.js — thin wrapper around the Flask backend
-// In dev (Vite on localhost:5173) BASE is empty → Vite proxies /api/* to localhost:5000
-// In production (Vercel) VITE_API_BASE_URL points at the Render backend
-const BASE = import.meta.env.VITE_API_BASE_URL || ''
+const BASE = import.meta.env.VITE_API_BASE_URL || 'https://miu-bee-api.onrender.com'
 
 async function jsonFetch(url, opts = {}) {
   opts.credentials = 'include'
-  const r = await fetch(url, opts)
-  if (!r.ok) {
-    let msg = `HTTP ${r.status}`
-    try {
-      const data = await r.json()
-      msg = data.error || data.message || msg
-    } catch { /* not JSON */ }
-    throw new Error(msg)
+
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 45000)
+  opts.signal = controller.signal
+
+  try {
+    const r = await fetch(url, opts)
+    if (!r.ok) {
+      let msg = `HTTP ${r.status}`
+      try {
+        const data = await r.json()
+        msg = data.error || data.message || msg
+      } catch { /* not JSON */ }
+      throw new Error(msg)
+    }
+    return await r.json()
+  } finally {
+    clearTimeout(timeoutId)
   }
-  return r.json()
 }
 
 export const api = {
@@ -43,7 +50,6 @@ export const api = {
       body: JSON.stringify({ label })
     }),
 
-  // ---- Auth ----
   me: () => jsonFetch(`${BASE}/api/me`),
   logout: () => jsonFetch(`${BASE}/api/logout`, { method: 'POST' }),
   login: (username, password) =>
@@ -64,11 +70,8 @@ export const api = {
     }),
 
   myLogins: () => jsonFetch(`${BASE}/api/me/logins`),
-
-  // ---- Admin ----
   dbStatus: () => jsonFetch(`${BASE}/api/db/status`),
 
-  // ---- User management (admin only) ----
   listUsers: () => jsonFetch(`${BASE}/api/users`),
   createUser: (payload) =>
     jsonFetch(`${BASE}/api/users`, {
@@ -93,7 +96,6 @@ export const api = {
       body: JSON.stringify({ password })
     }),
 
-  // ---- Downloads ----
   downloadUrl: (kind, path) =>
     `${BASE}/download/${kind}/${encodeURIComponent(path).replace(/%2F/g, '/')}`
 }
