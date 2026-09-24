@@ -13,9 +13,11 @@ Endpoints:
   GET  /api/dashboard          → stats + charts data
   GET  /api/zip/all            → download all slides as zip
   GET  /api/zip/course/<code>  → download one course as zip
-  POST /api/login              → login
+  POST /api/login              → login (rate-limited)
   POST /api/logout             → logout
   GET  /api/me                 → current user info + permissions
+  POST /api/me/password        → change own password
+  GET  /api/me/logins          → recent login attempts
   GET/POST/PATCH/DELETE /api/users  → admin user management
   GET  /                       → serves React build if present
 """
@@ -217,20 +219,41 @@ def api_login():
     body = request.get_json(silent=True) or {}
     username = (body.get("username") or "").strip()
     password = body.get("password") or ""
+    ip = request.headers.get("X-Forwarded-For", request.remote_addr) or ""
 
     if not username or not password:
         return jsonify({"ok": False, "error": "Username and password required"}), 400
 
+    # --- Rate limit check ---
+    limited, seconds_left = auth.is_rate_limited(username, ip)
+    if limited:
+        mins = (seconds_left + 59) // 60
+        return jsonify({
+            "ok": False,
+            "error": f"Too many failed attempts. Try again in {mins} minute(s)."
+        }), 429
+
     user = auth.find_user(username)
-    if not user or not auth.verify_password(password, user.get("password_hash", "")):
+    ok = bool(user) and auth.verify_password(password, user.get("password_hash", ""))
+
+    # --- Log every attempt ---
+    auth.record_login_attempt(username, ip, ok)
+
+    if not ok:
         if MONGO_AVAILABLE:
             try:
-                db.log_activity("login_failed", f"user={username}")
+                db.log_activity("login_failed", f"user={username} ip={ip}")
             except Exception:
                 pass
         return jsonify({"ok": False, "error": "Invalid credentials"}), 401
 
     role = user.get("role", "viewer")
+    if MONGO_AVAILABLE:
+        try:
+            db.log_activity("login_success", f"user={username} ip={ip}")
+        except Exception:
+            pass
+
     resp = make_response(jsonify({
         "ok": True,
         "user": {
@@ -266,6 +289,49 @@ def api_me():
             "permissions": sorted(auth.ROLE_PERMISSIONS.get(role, set())),
         }
     })
+
+
+@app.route("/api/me/password", methods=["POST"])
+@auth.require_auth
+def api_me_password():
+    """Change the current user's own password."""
+    body = request.get_json(silent=True) or {}
+    old_password = body.get("old_password") or ""
+    new_password = body.get("new_password") or ""
+    me = auth.current_user()
+
+    ok, msg = auth.change_own_password(me, old_password, new_password)
+
+    if MONGO_AVAILABLE:
+        try:
+            db.log_activity(
+                "password_changed" if ok else "password_change_failed",
+                f"user={me}",
+                user=me
+            )
+        except Exception:
+            pass
+
+    return jsonify({"ok": ok, "message": msg}), (200 if ok else 400)
+
+
+@app.route("/api/me/logins", methods=["GET"])
+@auth.require_auth
+def api_me_logins():
+    """Return recent login attempts for the current user."""
+    if not MONGO_AVAILABLE:
+        return jsonify({"ok": True, "logins": []})
+    me = auth.current_user()
+    try:
+        docs = list(db.get_db()["login_attempts"]
+                    .find({"username": me}, {"_id": 0})
+                    .sort("ts", -1).limit(20))
+        for d in docs:
+            if "ts" in d and hasattr(d["ts"], "isoformat"):
+                d["ts"] = d["ts"].isoformat()
+        return jsonify({"ok": True, "logins": docs})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
 
 
 # ============ Protected routes ============

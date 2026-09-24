@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { X } from 'lucide-react'
 import { api } from './api'
 import { useAuth } from './useAuth'
 import { useTheme } from './useTheme'
@@ -18,6 +19,8 @@ import ZipButtons from './components/ZipButtons'
 import Dashboard from './components/Dashboard'
 import Login from './components/Login'
 import UserManagement from './components/UserManagement'
+import ChangePasswordModal from './components/ChangePasswordModal'
+import MyLogins from './components/MyLogins'
 
 const ROLE_LABELS = {
   admin: '🛡️ Admin',
@@ -41,7 +44,9 @@ export default function App() {
     () => localStorage.getItem('miu_bee_prayer_seen') !== 'yes'
   )
   const [view, setView] = useState('overview')
-  const [adminTab, setAdminTab] = useState('main')  // 'main' | 'users'
+  const [adminTab, setAdminTab] = useState('main')
+  const [showChangePw, setShowChangePw] = useState(false)
+  const [showLogins, setShowLogins] = useState(false)
 
   const logIndexRef = useRef(0)
 
@@ -51,13 +56,11 @@ export default function App() {
     setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), 4200)
   }
 
-  // Browser notifications — fire when generation finishes
   const notif = useNotifications(stats, (result) => {
     if (result === 'granted') addToast('Notifications enabled 🔔', 'success')
     else addToast('Notifications blocked', 'error')
   })
 
-  // Poll stats every 2s
   useEffect(() => {
     if (!user) return
     let mounted = true
@@ -72,7 +75,6 @@ export default function App() {
     return () => { mounted = false; clearInterval(id) }
   }, [user])
 
-  // Poll logs every 1s
   useEffect(() => {
     if (!user) return
     let mounted = true
@@ -90,7 +92,6 @@ export default function App() {
     return () => { mounted = false; clearInterval(id) }
   }, [user])
 
-  // Refresh trees
   useEffect(() => {
     if (!user) return
     const fetchTrees = async () => {
@@ -235,7 +236,6 @@ export default function App() {
               )}
             </AnimatePresence>
 
-            {/* Enable notifications (only if not granted) */}
             {notif.supported && notif.permission !== 'granted' && (
               <button
                 onClick={notif.requestPermission}
@@ -246,7 +246,6 @@ export default function App() {
               </button>
             )}
 
-            {/* Dark mode toggle */}
             <button
               onClick={toggle}
               title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
@@ -272,28 +271,13 @@ export default function App() {
               🙏 Prayer
             </button>
 
-            <button
-              onClick={logout}
-              title={`Signed in as ${user.username}`}
-              style={{
-                background: 'rgba(255,255,255,.18)',
-                border: '1px solid rgba(255,255,255,.3)',
-                color: 'white',
-                padding: '8px 16px',
-                borderRadius: 999,
-                cursor: 'pointer',
-                fontSize: 13,
-                fontWeight: 600,
-                fontFamily: 'inherit',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6
-              }}
-            >
-              <span>{roleLabel}</span>
-              <span style={{ opacity: .75 }}>·</span>
-              <span>{user.username}</span>
-            </button>
+            <UserMenu
+              user={user}
+              roleLabel={roleLabel}
+              onChangePassword={() => setShowChangePw(true)}
+              onShowLogins={() => setShowLogins(true)}
+              onLogout={logout}
+            />
           </div>
         </div>
       </header>
@@ -394,6 +378,124 @@ export default function App() {
       </main>
 
       <Toasts items={toasts} />
+
+      {showChangePw && (
+        <ChangePasswordModal
+          onClose={() => setShowChangePw(false)}
+          onDone={() => setShowChangePw(false)}
+          onToast={addToast}
+        />
+      )}
+
+      {showLogins && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 1000,
+          background: 'rgba(0,0,0,.4)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: 20
+        }} onClick={() => setShowLogins(false)}>
+          <div style={{
+            background: 'white', borderRadius: 12,
+            padding: 24, width: '100%', maxWidth: 520
+          }} onClick={e => e.stopPropagation()}>
+            <div style={{
+              display: 'flex', justifyContent: 'space-between',
+              alignItems: 'center', marginBottom: 14
+            }}>
+              <div style={{ fontSize: 16, fontWeight: 700, color: '#00823C' }}>
+                My Recent Logins
+              </div>
+              <button
+                onClick={() => setShowLogins(false)}
+                style={{
+                  background: 'transparent', border: 'none',
+                  cursor: 'pointer', color: '#666'
+                }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <MyLogins />
+          </div>
+        </div>
+      )}
     </div>
+  )
+}
+
+
+function UserMenu({ user, roleLabel, onChangePassword, onShowLogins, onLogout }) {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        title={`Signed in as ${user.username}`}
+        style={{
+          background: 'rgba(255,255,255,.18)',
+          border: '1px solid rgba(255,255,255,.3)',
+          color: 'white',
+          padding: '8px 16px',
+          borderRadius: 999,
+          cursor: 'pointer',
+          fontSize: 13,
+          fontWeight: 600,
+          fontFamily: 'inherit',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6
+        }}
+      >
+        <span>{roleLabel}</span>
+        <span style={{ opacity: .75 }}>·</span>
+        <span>{user.username}</span>
+        <span style={{ opacity: .75, fontSize: 10 }}>{open ? '▲' : '▼'}</span>
+      </button>
+
+      {open && (
+        <>
+          <div
+            onClick={() => setOpen(false)}
+            style={{ position: 'fixed', inset: 0, zIndex: 200 }}
+          />
+          <div style={{
+            position: 'absolute', top: 'calc(100% + 6px)', right: 0,
+            background: 'white', borderRadius: 10,
+            boxShadow: '0 12px 32px rgba(0,0,0,.18)',
+            minWidth: 220, padding: 6, zIndex: 201
+          }}>
+            <MenuItem onClick={() => { setOpen(false); onChangePassword() }}>
+              🔐 Change Password
+            </MenuItem>
+            <MenuItem onClick={() => { setOpen(false); onShowLogins() }}>
+              📜 My Recent Logins
+            </MenuItem>
+            <div style={{ height: 1, background: '#F3F4F6', margin: '4px 0' }} />
+            <MenuItem onClick={onLogout} danger>⎋ Logout</MenuItem>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+function MenuItem({ children, onClick, danger }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        display: 'block', width: '100%', textAlign: 'left',
+        background: 'transparent', border: 'none',
+        padding: '9px 12px', borderRadius: 6,
+        cursor: 'pointer', fontSize: 13.5,
+        fontFamily: 'inherit',
+        color: danger ? '#C81E28' : '#374151'
+      }}
+      onMouseOver={(e) => { e.currentTarget.style.background = '#F9FAFB' }}
+      onMouseOut={(e) => { e.currentTarget.style.background = 'transparent' }}
+    >
+      {children}
+    </button>
   )
 }

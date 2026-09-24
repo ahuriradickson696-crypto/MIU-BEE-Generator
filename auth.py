@@ -3,11 +3,12 @@ auth.py — simple user authentication for MIU BEE.
 Uses MongoDB for user storage + bcrypt for password hashing
 + itsdangerous for signed session tokens.
 Supports role-based permissions: admin, lecturer, viewer.
+Includes rate limiting + self-service password change.
 """
 
 import os
 import secrets
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from functools import wraps
 
 from flask import request, jsonify
@@ -25,6 +26,9 @@ COOKIE_NAME = "miu_session"
 COOKIE_MAX_AGE = 60 * 60 * 24 * 7  # 7 days
 
 signer = URLSafeTimedSerializer(SECRET_KEY, salt="miu-bee-session")
+
+RATE_LIMIT_MAX_ATTEMPTS = 5
+RATE_LIMIT_WINDOW_MIN = 15
 
 
 # ============================================================
@@ -69,6 +73,25 @@ def find_user(username):
         return None
 
 
+def change_own_password(username, old_password, new_password):
+    """Verify old password, then set new one. Returns (ok, message)."""
+    user = find_user(username)
+    if not user:
+        return False, "User not found"
+    if not verify_password(old_password, user.get("password_hash", "")):
+        return False, "Current password is incorrect"
+    if len(new_password) < 6:
+        return False, "New password must be at least 6 characters"
+    try:
+        db.col_users().update_one(
+            {"username": username},
+            {"$set": {"password_hash": hash_password(new_password)}}
+        )
+        return True, "Password updated"
+    except Exception as e:
+        return False, str(e)
+
+
 # ============================================================
 # SESSION TOKENS
 # ============================================================
@@ -111,6 +134,63 @@ def current_user():
     if not token:
         return None
     return read_token(token)
+
+
+# ============================================================
+# RATE LIMITING
+# ============================================================
+
+def _login_attempts_col():
+    return db.get_db()["login_attempts"]
+
+
+def record_login_attempt(username, ip, success):
+    """Log every login attempt (success or failure)."""
+    if not MONGO_OK:
+        return
+    try:
+        _login_attempts_col().insert_one({
+            "username": username,
+            "ip": ip or "unknown",
+            "success": bool(success),
+            "ts": datetime.now(timezone.utc),
+        })
+        # Auto-delete attempts older than 24 hours
+        cutoff = datetime.now(timezone.utc) - timedelta(days=1)
+        _login_attempts_col().delete_many({"ts": {"$lt": cutoff}})
+    except Exception as e:
+        print(f"[auth] record_login_attempt failed: {e}")
+
+
+def is_rate_limited(username, ip):
+    """Return (limited: bool, seconds_left: int)."""
+    if not MONGO_OK:
+        return False, 0
+    try:
+        cutoff = datetime.now(timezone.utc) - timedelta(minutes=RATE_LIMIT_WINDOW_MIN)
+        query = {
+            "$or": [
+                {"ip": ip or "unknown"},
+                {"username": username or ""}
+            ],
+            "success": False,
+            "ts": {"$gte": cutoff}
+        }
+        failed = _login_attempts_col().count_documents(query)
+        if failed >= RATE_LIMIT_MAX_ATTEMPTS:
+            oldest_doc = next(
+                iter(_login_attempts_col().find(query).sort("ts", 1).limit(1)),
+                None
+            )
+            if oldest_doc and "ts" in oldest_doc:
+                elapsed = (datetime.now(timezone.utc) - oldest_doc["ts"]).total_seconds()
+                seconds_left = max(0, RATE_LIMIT_WINDOW_MIN * 60 - int(elapsed))
+                return True, seconds_left
+            return True, RATE_LIMIT_WINDOW_MIN * 60
+        return False, 0
+    except Exception as e:
+        print(f"[auth] is_rate_limited failed: {e}")
+        return False, 0
 
 
 # ============================================================

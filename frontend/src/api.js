@@ -53,6 +53,18 @@ export const api = {
       body: JSON.stringify({ username, password })
     }),
 
+  changePassword: (oldPassword, newPassword) =>
+    jsonFetch(`${BASE}/api/me/password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        old_password: oldPassword,
+        new_password: newPassword
+      })
+    }),
+
+  myLogins: () => jsonFetch(`${BASE}/api/me/logins`),
+
   // ---- Admin ----
   dbStatus: () => jsonFetch(`${BASE}/api/db/status`),
 
