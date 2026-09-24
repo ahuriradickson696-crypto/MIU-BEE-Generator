@@ -1,10 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import {
-  Play, StopCircle, RefreshCw, FileText, Mail, Trash2,
-  RotateCcw, BarChart3, FileDown, FolderOpen
-} from 'lucide-react'
 import { api } from './api'
+import { useAuth } from './useAuth'
 
 import StatCard from './components/StatCard'
 import ProgressRing from './components/ProgressRing'
@@ -17,8 +14,17 @@ import PrayerPage from './components/PrayerPage'
 import SearchBar from './components/SearchBar'
 import ZipButtons from './components/ZipButtons'
 import Dashboard from './components/Dashboard'
+import Login from './components/Login'
+
+const ROLE_LABELS = {
+  admin: '🛡️ Admin',
+  lecturer: '🎓 Lecturer',
+  viewer: '👁️ Viewer'
+}
 
 export default function App() {
+  const { user, authChecked, logout } = useAuth()
+
   const [stats, setStats] = useState({
     total: 0, done: 0, remaining: 0, pptx: 0, pdf: 0,
     pct: 0, courses: [], running: false, task: null
@@ -30,7 +36,7 @@ export default function App() {
   const [showPrayer, setShowPrayer] = useState(
     () => localStorage.getItem('miu_bee_prayer_seen') !== 'yes'
   )
-  const [view, setView] = useState('overview')  // 'overview' | 'dashboard'
+  const [view, setView] = useState('overview')
 
   const logIndexRef = useRef(0)
 
@@ -42,20 +48,22 @@ export default function App() {
 
   // Poll stats every 2s
   useEffect(() => {
+    if (!user) return
     let mounted = true
     const tick = async () => {
       try {
         const s = await api.stats()
         if (mounted) setStats(s)
-      } catch { /* server not up yet */ }
+      } catch { /* ignore */ }
     }
     tick()
     const id = setInterval(tick, 2000)
     return () => { mounted = false; clearInterval(id) }
-  }, [])
+  }, [user])
 
   // Poll logs every 1s
   useEffect(() => {
+    if (!user) return
     let mounted = true
     const tick = async () => {
       try {
@@ -69,10 +77,11 @@ export default function App() {
     tick()
     const id = setInterval(tick, 1000)
     return () => { mounted = false; clearInterval(id) }
-  }, [])
+  }, [user])
 
-  // Refresh trees when stats change meaningfully
+  // Refresh trees
   useEffect(() => {
+    if (!user) return
     const fetchTrees = async () => {
       try {
         const [p, d, c] = await Promise.all([
@@ -84,25 +93,21 @@ export default function App() {
     fetchTrees()
     const id = setInterval(fetchTrees, 8000)
     return () => clearInterval(id)
-  }, [])
+  }, [user])
 
   const run = async (task, label) => {
     try {
       const res = await api.run(task)
       if (res.ok) addToast(`${label || task} started`, 'success')
-      else addToast(res.message || 'Failed to start', 'error')
+      else addToast(res.message || res.error || 'Failed', 'error')
     } catch (e) {
-      addToast(`Error: ${e.message}`, 'error')
+      addToast(`${e.message}`, 'error')
     }
   }
 
   const stop = async () => {
-    try {
-      await api.stop()
-      addToast('Stopped', 'info')
-    } catch {
-      addToast('Stop failed', 'error')
-    }
+    try { await api.stop(); addToast('Stopped', 'info') }
+    catch { addToast('Stop failed', 'error') }
   }
 
   const sendReport = async () => {
@@ -119,13 +124,28 @@ export default function App() {
     setShowPrayer(false)
   }
 
+  if (!authChecked) {
+    return (
+      <div style={{
+        minHeight: '100vh', display: 'flex',
+        alignItems: 'center', justifyContent: 'center',
+        background: '#F4F6F8', color: '#666', fontSize: 14
+      }}>Loading...</div>
+    )
+  }
+
+  if (!user) {
+    return <Login onSuccess={() => { /* handled by AuthProvider */ }} />
+  }
+
   if (showPrayer) {
     return <PrayerPage onEnter={dismissPrayer} />
   }
 
+  const roleLabel = ROLE_LABELS[user.role] || user.role
+
   return (
     <div className="app">
-      {/* Header */}
       <header className="header">
         <div className="header-inner">
           <div className="header-brand">
@@ -188,12 +208,34 @@ export default function App() {
             >
               🙏 Prayer
             </button>
+
+            <button
+              onClick={logout}
+              title={`Signed in as ${user.username}`}
+              style={{
+                background: 'rgba(255,255,255,.18)',
+                border: '1px solid rgba(255,255,255,.3)',
+                color: 'white',
+                padding: '8px 16px',
+                borderRadius: 999,
+                cursor: 'pointer',
+                fontSize: 13,
+                fontWeight: 600,
+                fontFamily: 'inherit',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6
+              }}
+            >
+              <span>{roleLabel}</span>
+              <span style={{ opacity: .75 }}>·</span>
+              <span>{user.username}</span>
+            </button>
           </div>
         </div>
       </header>
 
       <main className="main">
-        {/* Stat cards */}
         <motion.div
           className="stats-grid"
           initial="hidden"
@@ -210,7 +252,6 @@ export default function App() {
           <StatCard label="PDF files" value={stats.pdf} sub="Converted" color="amber" />
         </motion.div>
 
-        {/* Progress + actions + log */}
         <div className="columns">
           <div>
             <div className="panel" style={{ marginBottom: 20 }}>
@@ -247,13 +288,11 @@ export default function App() {
           </div>
         </div>
 
-        {/* ZIP downloads */}
         <div className="panel" style={{ marginBottom: 20 }}>
           <h2>Downloads</h2>
           <ZipButtons pptxCount={stats.pptx} />
         </div>
 
-        {/* Dashboard (only when view === 'dashboard') */}
         {view === 'dashboard' && (
           <div className="panel" style={{ marginBottom: 20 }}>
             <h2>Dashboard</h2>
@@ -261,7 +300,6 @@ export default function App() {
           </div>
         )}
 
-        {/* Files tabs */}
         <div className="panel" style={{ marginBottom: 20 }}>
           <h2>Files</h2>
           <div className="tabs">
@@ -275,7 +313,6 @@ export default function App() {
           <FileTree tree={tree[treeTab]} kind={treeTab} onToast={addToast} />
         </div>
 
-        {/* Course breakdown */}
         <div className="panel">
           <h2>Course Breakdown</h2>
           <CourseTable courses={stats.courses} />
