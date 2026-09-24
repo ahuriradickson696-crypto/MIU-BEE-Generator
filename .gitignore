@@ -1,5 +1,6 @@
 .env
 .venv/
+.git_broken_backup/
 __pycache__/
 *.pyc
 provider_usage.json
@@ -10,9 +11,14 @@ output_slides/
 output_pdfs/
 logs/
 _old_flat_backup/
-templates/
+generated_images/
+progress.log
+run_batch.py
 gui.py
 gui.bat
 webapp.py
-progress.log
-run_batch.py
+templates/
+index.html
+public
+vite.config.js
+ender.yaml

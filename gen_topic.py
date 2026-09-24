@@ -13,6 +13,13 @@ import random
 
 load_dotenv()
 
+try:
+    import db
+    MONGO_AVAILABLE = True
+except Exception as e:
+    print(f"[db] MongoDB not available: {e}")
+    MONGO_AVAILABLE = False
+
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 GROQ_API_KEY_2 = os.getenv("GROQ_API_KEY_2")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
@@ -158,7 +165,7 @@ def log_progress(message):
 
 
 # ============================================================
-# PROVIDER LOGIC (unchanged)
+# PROVIDER LOGIC
 # ============================================================
 
 def pick_provider(usage, estimated_tokens):
@@ -656,6 +663,48 @@ def build_topic_deck(program_code, year, semester,
     rel = slides_file.relative_to(BASE_DIR)
     print(f"    [saved] {rel}")
     log_progress(f"[Y{year}S{semester}] [{course_code}] {topic} — DONE ({rel})")
+
+    # Save to MongoDB (best-effort — never break the pipeline)
+    if MONGO_AVAILABLE:
+        try:
+            db.col_slides().update_one(
+                {"course_code": course_code, "topic_number": topic_number},
+                {"$set": {
+                    "program": program_code,
+                    "year": year,
+                    "semester": semester,
+                    "course_name": course_name,
+                    "topic": topic,
+                    "filename": slides_file.name,
+                    "rel_path": str(rel).replace("\\", "/"),
+                    "size_bytes": slides_file.stat().st_size,
+                    "updated_at": datetime.now(timezone.utc),
+                }},
+                upsert=True,
+            )
+            db.col_content().update_one(
+                {"course_code": course_code, "topic_number": topic_number},
+                {"$set": {
+                    "program": program_code,
+                    "year": year,
+                    "semester": semester,
+                    "course_code": course_code,
+                    "course_name": course_name,
+                    "topic_number": topic_number,
+                    "topic": topic,
+                    "content": content,
+                    "updated_at": datetime.now(timezone.utc),
+                }},
+                upsert=True,
+            )
+            db.log_activity(
+                "generate",
+                f"{course_code} · {topic}",
+                user="system"
+            )
+        except Exception as e:
+            print(f"    [db] MongoDB save failed: {e}")
+
     return slides_file
 
 
@@ -697,6 +746,11 @@ def main():
                         except RateLimitReached as e:
                             print(f"\n[STOP] {e}")
                             log_progress(f"[STOP] Rate limit — {course_code}/{topic}")
+                            if MONGO_AVAILABLE:
+                                try:
+                                    db.log_activity("rate_limit", str(e), user="system")
+                                except Exception:
+                                    pass
                             print("Re-run later — cached topics will be skipped.")
                             return
                         except Exception as e:
